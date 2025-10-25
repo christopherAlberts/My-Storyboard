@@ -19,7 +19,34 @@ import {
   EyeOff,
   Settings,
   FileText,
-  FolderOpen
+  FolderOpen,
+  Pen,
+  Eraser,
+  Move,
+  Church,
+  School,
+  Store,
+  Factory,
+  Castle,
+  Leaf,
+  Mountain,
+  Waves,
+  Car,
+  Ship,
+  Plane,
+  Train,
+  Zap,
+  Shield,
+  Sword,
+  Crown,
+  Gem,
+  Heart,
+  Star,
+  Circle,
+  Triangle,
+  Hexagon,
+  MousePointer,
+  Cross
 } from 'lucide-react';
 
 const MapBuilder: React.FC = () => {
@@ -29,14 +56,22 @@ const MapBuilder: React.FC = () => {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedElement, setSelectedElement] = useState<MapElement | null>(null);
-  const [selectedTool, setSelectedTool] = useState<'select' | 'building' | 'road' | 'landmark' | 'character' | 'note' | 'area'>('select');
+  const [selectedTool, setSelectedTool] = useState<'select' | 'pen' | 'eraser' | 'move' | 'building' | 'road' | 'landmark' | 'character' | 'note' | 'area' | 'church' | 'school' | 'hospital' | 'store' | 'factory' | 'castle' | 'tree' | 'mountain' | 'water' | 'car' | 'ship' | 'plane' | 'train' | 'magic' | 'shield' | 'sword' | 'crown' | 'gem' | 'heart' | 'star' | 'circle' | 'triangle' | 'hexagon'>('select');
   const [showGrid, setShowGrid] = useState(true);
   const [showElementPalette, setShowElementPalette] = useState(true);
   const [showMapList, setShowMapList] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [mapList, setMapList] = useState<MapData[]>([]);
   const [editingElement, setEditingElement] = useState<MapElement | null>(null);
+  const [brushSize, setBrushSize] = useState(5);
+  const [brushColor, setBrushColor] = useState('#000000');
+  const [isPanning, setIsPanning] = useState(false);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -143,9 +178,79 @@ const MapBuilder: React.FC = () => {
         y >= element.y && y <= element.y + element.height
       );
       setSelectedElement(clickedElement || null);
+    } else if (selectedTool === 'pen') {
+      // Start freehand drawing
+      setIsDrawing(true);
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.strokeStyle = brushColor;
+        ctx.lineWidth = brushSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+      }
+    } else if (selectedTool === 'eraser') {
+      // Start erasing
+      setIsDrawing(true);
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineWidth = brushSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+      }
+    } else if (selectedTool === 'move' && selectedElement) {
+      // Start dragging
+      setIsDragging(true);
+      setDragStart({ x: x - selectedElement.x, y: y - selectedElement.y });
     } else {
       // Add new element
       addElement(x, y);
+    }
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (isDrawing && (selectedTool === 'pen' || selectedTool === 'eraser')) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+    } else if (isDragging && selectedElement) {
+      const newX = Math.round(x / currentMap?.gridSize || 20) * (currentMap?.gridSize || 20);
+      const newY = Math.round(y / currentMap?.gridSize || 20) * (currentMap?.gridSize || 20);
+      
+      updateElement(selectedElement.id!, {
+        ...selectedElement,
+        x: Math.max(0, newX),
+        y: Math.max(0, newY),
+      });
+    }
+  };
+
+  const handleCanvasMouseUp = () => {
+    if (isDrawing) {
+      setIsDrawing(false);
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.globalCompositeOperation = 'source-over';
+        }
+      }
+    }
+    if (isDragging) {
+      setIsDragging(false);
     }
   };
 
@@ -179,6 +284,29 @@ const MapBuilder: React.FC = () => {
       case 'character': return '#4CAF50';
       case 'note': return '#FFC107';
       case 'area': return '#E1F5FE';
+      case 'church': return '#F3E5F5';
+      case 'school': return '#E8F5E8';
+      case 'hospital': return '#FFEBEE';
+      case 'store': return '#FFF3E0';
+      case 'factory': return '#E0F2F1';
+      case 'castle': return '#F1F8E9';
+      case 'tree': return '#4CAF50';
+      case 'mountain': return '#795548';
+      case 'water': return '#2196F3';
+      case 'car': return '#FF9800';
+      case 'ship': return '#3F51B5';
+      case 'plane': return '#9C27B0';
+      case 'train': return '#607D8B';
+      case 'magic': return '#E91E63';
+      case 'shield': return '#00BCD4';
+      case 'sword': return '#FF5722';
+      case 'crown': return '#FFD700';
+      case 'gem': return '#9C27B0';
+      case 'heart': return '#F44336';
+      case 'star': return '#FFEB3B';
+      case 'circle': return '#FF9800';
+      case 'triangle': return '#4CAF50';
+      case 'hexagon': return '#2196F3';
       default: return '#666666';
     }
   };
@@ -191,6 +319,29 @@ const MapBuilder: React.FC = () => {
       case 'character': return <User className="w-4 h-4" />;
       case 'note': return <StickyNote className="w-4 h-4" />;
       case 'area': return <Square className="w-4 h-4" />;
+      case 'church': return <Church className="w-4 h-4" />;
+      case 'school': return <School className="w-4 h-4" />;
+      case 'hospital': return <Cross className="w-4 h-4" />;
+      case 'store': return <Store className="w-4 h-4" />;
+      case 'factory': return <Factory className="w-4 h-4" />;
+      case 'castle': return <Castle className="w-4 h-4" />;
+      case 'tree': return <Leaf className="w-4 h-4" />;
+      case 'mountain': return <Mountain className="w-4 h-4" />;
+      case 'water': return <Waves className="w-4 h-4" />;
+      case 'car': return <Car className="w-4 h-4" />;
+      case 'ship': return <Ship className="w-4 h-4" />;
+      case 'plane': return <Plane className="w-4 h-4" />;
+      case 'train': return <Train className="w-4 h-4" />;
+      case 'magic': return <Zap className="w-4 h-4" />;
+      case 'shield': return <Shield className="w-4 h-4" />;
+      case 'sword': return <Sword className="w-4 h-4" />;
+      case 'crown': return <Crown className="w-4 h-4" />;
+      case 'gem': return <Gem className="w-4 h-4" />;
+      case 'heart': return <Heart className="w-4 h-4" />;
+      case 'star': return <Star className="w-4 h-4" />;
+      case 'circle': return <Circle className="w-4 h-4" />;
+      case 'triangle': return <Triangle className="w-4 h-4" />;
+      case 'hexagon': return <Hexagon className="w-4 h-4" />;
       default: return <Square className="w-4 h-4" />;
     }
   };
@@ -376,30 +527,244 @@ const MapBuilder: React.FC = () => {
           <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
               <h3 className="font-medium text-gray-900 dark:text-white mb-3">Tools</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { tool: 'select', icon: <Square className="w-4 h-4" />, label: 'Select' },
-                  { tool: 'building', icon: <Building className="w-4 h-4" />, label: 'Building' },
-                  { tool: 'road', icon: <Square className="w-4 h-4" />, label: 'Road' },
-                  { tool: 'landmark', icon: <MapPin className="w-4 h-4" />, label: 'Landmark' },
-                  { tool: 'character', icon: <User className="w-4 h-4" />, label: 'Character' },
-                  { tool: 'note', icon: <StickyNote className="w-4 h-4" />, label: 'Note' },
-                ].map(({ tool, icon, label }) => (
-                  <button
-                    key={tool}
-                    onClick={() => setSelectedTool(tool as any)}
-                    className={`p-3 rounded-lg border transition-colors ${
-                      selectedTool === tool
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                        : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center space-y-1">
-                      {icon}
-                      <span className="text-xs">{label}</span>
+              <div className="space-y-4">
+                {/* Basic Tools */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Basic Tools</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { tool: 'select', icon: <MousePointer className="w-4 h-4" />, label: 'Select' },
+                      { tool: 'pen', icon: <Pen className="w-4 h-4" />, label: 'Draw' },
+                      { tool: 'eraser', icon: <Eraser className="w-4 h-4" />, label: 'Erase' },
+                      { tool: 'move', icon: <Move className="w-4 h-4" />, label: 'Move' },
+                    ].map(({ tool, icon, label }) => (
+                      <button
+                        key={tool}
+                        onClick={() => setSelectedTool(tool as any)}
+                        className={`p-2 rounded-lg border transition-colors ${
+                          selectedTool === tool
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                            : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                        title={label}
+                      >
+                        <div className="flex flex-col items-center space-y-1">
+                          {icon}
+                          <span className="text-xs">{label}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Buildings */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Buildings</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { tool: 'building', icon: <Building className="w-4 h-4" />, label: 'Building' },
+                      { tool: 'church', icon: <Church className="w-4 h-4" />, label: 'Church' },
+                      { tool: 'school', icon: <School className="w-4 h-4" />, label: 'School' },
+                      { tool: 'hospital', icon: <Cross className="w-4 h-4" />, label: 'Hospital' },
+                      { tool: 'store', icon: <Store className="w-4 h-4" />, label: 'Store' },
+                      { tool: 'factory', icon: <Factory className="w-4 h-4" />, label: 'Factory' },
+                      { tool: 'castle', icon: <Castle className="w-4 h-4" />, label: 'Castle' },
+                    ].map(({ tool, icon, label }) => (
+                      <button
+                        key={tool}
+                        onClick={() => setSelectedTool(tool as any)}
+                        className={`p-2 rounded-lg border transition-colors ${
+                          selectedTool === tool
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                            : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                        title={label}
+                      >
+                        <div className="flex flex-col items-center space-y-1">
+                          {icon}
+                          <span className="text-xs">{label}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Nature & Terrain */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nature</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { tool: 'tree', icon: <Leaf className="w-4 h-4" />, label: 'Tree' },
+                      { tool: 'mountain', icon: <Mountain className="w-4 h-4" />, label: 'Mountain' },
+                      { tool: 'water', icon: <Waves className="w-4 h-4" />, label: 'Water' },
+                      { tool: 'road', icon: <Square className="w-4 h-4" />, label: 'Road' },
+                    ].map(({ tool, icon, label }) => (
+                      <button
+                        key={tool}
+                        onClick={() => setSelectedTool(tool as any)}
+                        className={`p-2 rounded-lg border transition-colors ${
+                          selectedTool === tool
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                            : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                        title={label}
+                      >
+                        <div className="flex flex-col items-center space-y-1">
+                          {icon}
+                          <span className="text-xs">{label}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Transportation */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Transport</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { tool: 'car', icon: <Car className="w-4 h-4" />, label: 'Car' },
+                      { tool: 'ship', icon: <Ship className="w-4 h-4" />, label: 'Ship' },
+                      { tool: 'plane', icon: <Plane className="w-4 h-4" />, label: 'Plane' },
+                      { tool: 'train', icon: <Train className="w-4 h-4" />, label: 'Train' },
+                    ].map(({ tool, icon, label }) => (
+                      <button
+                        key={tool}
+                        onClick={() => setSelectedTool(tool as any)}
+                        className={`p-2 rounded-lg border transition-colors ${
+                          selectedTool === tool
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                            : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                        title={label}
+                      >
+                        <div className="flex flex-col items-center space-y-1">
+                          {icon}
+                          <span className="text-xs">{label}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Fantasy & Magic */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fantasy</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { tool: 'magic', icon: <Zap className="w-4 h-4" />, label: 'Magic' },
+                      { tool: 'shield', icon: <Shield className="w-4 h-4" />, label: 'Shield' },
+                      { tool: 'sword', icon: <Sword className="w-4 h-4" />, label: 'Sword' },
+                      { tool: 'crown', icon: <Crown className="w-4 h-4" />, label: 'Crown' },
+                      { tool: 'gem', icon: <Gem className="w-4 h-4" />, label: 'Gem' },
+                      { tool: 'heart', icon: <Heart className="w-4 h-4" />, label: 'Heart' },
+                      { tool: 'star', icon: <Star className="w-4 h-4" />, label: 'Star' },
+                    ].map(({ tool, icon, label }) => (
+                      <button
+                        key={tool}
+                        onClick={() => setSelectedTool(tool as any)}
+                        className={`p-2 rounded-lg border transition-colors ${
+                          selectedTool === tool
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                            : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                        title={label}
+                      >
+                        <div className="flex flex-col items-center space-y-1">
+                          {icon}
+                          <span className="text-xs">{label}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Shapes */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Shapes</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { tool: 'circle', icon: <Circle className="w-4 h-4" />, label: 'Circle' },
+                      { tool: 'triangle', icon: <Triangle className="w-4 h-4" />, label: 'Triangle' },
+                      { tool: 'hexagon', icon: <Hexagon className="w-4 h-4" />, label: 'Hexagon' },
+                      { tool: 'area', icon: <Square className="w-4 h-4" />, label: 'Area' },
+                    ].map(({ tool, icon, label }) => (
+                      <button
+                        key={tool}
+                        onClick={() => setSelectedTool(tool as any)}
+                        className={`p-2 rounded-lg border transition-colors ${
+                          selectedTool === tool
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                            : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                        title={label}
+                      >
+                        <div className="flex flex-col items-center space-y-1">
+                          {icon}
+                          <span className="text-xs">{label}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Characters & Notes */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Characters & Notes</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { tool: 'character', icon: <User className="w-4 h-4" />, label: 'Character' },
+                      { tool: 'note', icon: <StickyNote className="w-4 h-4" />, label: 'Note' },
+                      { tool: 'landmark', icon: <MapPin className="w-4 h-4" />, label: 'Landmark' },
+                    ].map(({ tool, icon, label }) => (
+                      <button
+                        key={tool}
+                        onClick={() => setSelectedTool(tool as any)}
+                        className={`p-2 rounded-lg border transition-colors ${
+                          selectedTool === tool
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                            : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                        title={label}
+                      >
+                        <div className="flex flex-col items-center space-y-1">
+                          {icon}
+                          <span className="text-xs">{label}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Drawing Settings */}
+                {selectedTool === 'pen' && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Drawing Settings</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Brush Size</label>
+                        <input
+                          type="range"
+                          min="1"
+                          max="20"
+                          value={brushSize}
+                          onChange={(e) => setBrushSize(Number(e.target.value))}
+                          className="w-full"
+                        />
+                        <span className="text-xs text-gray-500">{brushSize}px</span>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Brush Color</label>
+                        <input
+                          type="color"
+                          value={brushColor}
+                          onChange={(e) => setBrushColor(e.target.value)}
+                          className="w-full h-8 rounded border border-gray-300 dark:border-gray-600"
+                        />
+                      </div>
                     </div>
-                  </button>
-                ))}
+                  </div>
+                )}
               </div>
             </div>
             
@@ -503,7 +868,15 @@ const MapBuilder: React.FC = () => {
               width={currentMap?.width || 1200}
               height={currentMap?.height || 800}
               onClick={handleCanvasClick}
-              className="cursor-crosshair border border-gray-300 dark:border-gray-600"
+              onMouseMove={handleCanvasMouseMove}
+              onMouseUp={handleCanvasMouseUp}
+              className={`border border-gray-300 dark:border-gray-600 ${
+                selectedTool === 'pen' ? 'cursor-pen' :
+                selectedTool === 'eraser' ? 'cursor-eraser' :
+                selectedTool === 'move' ? 'cursor-move' :
+                selectedTool === 'select' ? 'cursor-pointer' :
+                'cursor-crosshair'
+              }`}
               style={{ margin: '20px' }}
             />
           </div>

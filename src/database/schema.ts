@@ -149,7 +149,7 @@ export interface Document {
 
 export interface MapElement {
   id?: number;
-  type: 'building' | 'road' | 'landmark' | 'character' | 'note' | 'area';
+  type: 'building' | 'road' | 'landmark' | 'character' | 'note' | 'area' | 'church' | 'school' | 'hospital' | 'store' | 'factory' | 'castle' | 'tree' | 'mountain' | 'water' | 'car' | 'ship' | 'plane' | 'train' | 'magic' | 'shield' | 'sword' | 'crown' | 'gem' | 'heart' | 'star' | 'circle' | 'triangle' | 'hexagon';
   name: string;
   description: string;
   x: number;
