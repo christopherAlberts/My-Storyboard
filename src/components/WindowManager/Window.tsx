@@ -200,27 +200,19 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
       <div
         className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
         onMouseDown={(e) => handleResizeMouseDown(e, 'se')}
-      >
-        <div className="absolute bottom-1 right-1 w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-sm"></div>
-      </div>
+      />
       <div
         className="absolute bottom-0 left-0 w-4 h-4 cursor-sw-resize"
         onMouseDown={(e) => handleResizeMouseDown(e, 'sw')}
-      >
-        <div className="absolute bottom-1 left-1 w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-sm"></div>
-      </div>
+      />
       <div
         className="absolute top-0 right-0 w-4 h-4 cursor-ne-resize"
         onMouseDown={(e) => handleResizeMouseDown(e, 'ne')}
-      >
-        <div className="absolute top-1 right-1 w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-sm"></div>
-      </div>
+      />
       <div
         className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize"
         onMouseDown={(e) => handleResizeMouseDown(e, 'nw')}
-      >
-        <div className="absolute top-1 left-1 w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-sm"></div>
-      </div>
+      />
       
       {/* Resize Handles - Edges */}
       <div
