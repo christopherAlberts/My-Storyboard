@@ -10,7 +10,13 @@ const QUOTES = [
   "Please wait… your plot is thickening.",
   "Fetching character drama…",
   "Add a scene. Any scene. Even a dramatic sandwich moment.",
-  "This space is waiting for greatness. No pressure."
+  "This space is waiting for greatness. No pressure.",
+  "Brainstorming… please stand back for safety reasons.",
+  "This story has big 'trust me it'll make sense later' energy.",
+  "Give your character flaws. The bigger the train wreck, the better.",
+  "If your character is happy, don't worry. We'll fix that.",
+  "Every character needs a weird hobby. Trust me.",
+  "A plot hole? No— that's a mystery."
 ];
 
 interface QuoteDisplayProps {
