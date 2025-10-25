@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { Sun, Moon, Monitor } from 'lucide-react';
+import { Sun, Moon, Monitor, Coffee } from 'lucide-react';
 
 const Settings: React.FC = () => {
   const { theme, setTheme } = useAppStore();
@@ -80,6 +80,37 @@ const Settings: React.FC = () => {
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Buy Me a Coffee */}
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Support
+          </h2>
+          <div className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+            <div className="flex items-start space-x-4">
+              <div className="flex-shrink-0">
+                <Coffee className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                  Buy Me a Coffee
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Enjoying Storyboard? Consider buying me a coffee to support continued development!
+                </p>
+                <a
+                  href="https://buymeacoffee.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors font-medium text-sm"
+                >
+                  <Coffee className="w-4 h-4 mr-2" />
+                  Buy Me a Coffee
+                </a>
+              </div>
+            </div>
           </div>
         </div>
 
