@@ -9,6 +9,8 @@ export interface WindowState {
   zIndex: number;
   isSnapped?: boolean;
   snapZone?: SnapZone;
+  isFullscreen?: boolean;
+  previousState?: { position: { x: number; y: number }; size: { width: number; height: number } };
 }
 
 export type SnapZone = 

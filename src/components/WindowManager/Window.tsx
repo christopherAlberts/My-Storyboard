@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { WindowState } from '../../types';
 import { useAppStore } from '../../store/useAppStore';
-import { X, Minus, Square } from 'lucide-react';
+import { X, Minus, Square, Maximize2, Minimize2 } from 'lucide-react';
 import DocumentEditor from '../DocumentEditor/DocumentEditor';
 import StoryboardView from '../StoryboardView/StoryboardView';
 import DatabaseView from '../DatabaseView/DatabaseView';
@@ -26,7 +26,8 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
     snapConfig, 
     setSnapPreview, 
     snapWindowToZone,
-    unsnapWindow 
+    unsnapWindow,
+    toggleFullscreen
   } = useAppStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -236,7 +237,9 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
   return (
     <div
       ref={windowRef}
-      className={`fixed bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-300 dark:border-gray-600 flex flex-col transition-all duration-200 ${
+      className={`fixed bg-white dark:bg-gray-800 shadow-xl border border-gray-300 dark:border-gray-600 flex flex-col transition-all duration-200 ${
+        window.isFullscreen ? 'rounded-none' : 'rounded-lg'
+      } ${
         isActive ? 'ring-2 ring-blue-500' : ''
       } ${window.isSnapped ? 'ring-2 ring-green-500 shadow-2xl' : ''}`}
       style={{
@@ -245,7 +248,7 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
         width: window.size.width,
         height: window.size.height,
         zIndex: window.zIndex,
-        transition: window.isSnapped ? 'all 0.2s ease-out' : 'none',
+        transition: (window.isSnapped || window.isFullscreen) ? 'all 0.2s ease-out' : 'none',
       }}
       onClick={onClick}
       onMouseDown={handleMouseDown}
@@ -278,8 +281,23 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
               minimizeWindow(window.id);
             }}
             className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+            title="Minimize"
           >
             <Minus className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFullscreen(window.id);
+            }}
+            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+            title={window.isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+          >
+            {window.isFullscreen ? (
+              <Minimize2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            ) : (
+              <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            )}
           </button>
           <button
             onClick={(e) => {
@@ -287,6 +305,7 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
               closeWindow(window.id);
             }}
             className="p-1 hover:bg-red-200 dark:hover:bg-red-600 rounded transition-colors"
+            title="Close"
           >
             <X className="w-4 h-4 text-gray-600 dark:text-gray-400" />
           </button>

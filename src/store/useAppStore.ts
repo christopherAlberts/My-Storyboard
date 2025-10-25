@@ -13,6 +13,7 @@ interface AppStore extends AppState {
   updateWindowPosition: (id: string, position: { x: number; y: number }) => void;
   updateWindowSize: (id: string, size: { width: number; height: number }) => void;
   bringToFront: (id: string) => void;
+  toggleFullscreen: (id: string) => void;
   
   // Window snapping
   snapConfig: WindowSnapConfig;
@@ -191,6 +192,54 @@ export const useAppStore = create<AppStore>()(
           ),
           activeWindowId: id,
         }));
+      },
+
+      toggleFullscreen: (id) => {
+        set((state) => {
+          const window = state.windows.find(w => w.id === id);
+          if (!window) return state;
+
+          if (window.isFullscreen) {
+            // Restore previous state
+            if (window.previousState) {
+              return {
+                windows: state.windows.map(w => 
+                  w.id === id 
+                    ? { 
+                        ...w, 
+                        isFullscreen: false, 
+                        position: window.previousState!.position,
+                        size: window.previousState!.size,
+                        previousState: undefined
+                      } 
+                    : w
+                ),
+              };
+            }
+          } else {
+            // Save current state and fullscreen
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            
+            return {
+              windows: state.windows.map(w => 
+                w.id === id 
+                  ? { 
+                      ...w, 
+                      isFullscreen: true,
+                      previousState: {
+                        position: { x: w.position.x, y: w.position.y },
+                        size: { width: w.size.width, height: w.size.height }
+                      },
+                      position: { x: 0, y: 0 },
+                      size: { width: viewportWidth, height: viewportHeight }
+                    } 
+                  : w
+              ),
+            };
+          }
+          return state;
+        });
       },
 
       // Window snapping
