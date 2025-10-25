@@ -7,6 +7,33 @@ export interface WindowState {
   position: { x: number; y: number };
   size: { width: number; height: number };
   zIndex: number;
+  isSnapped?: boolean;
+  snapZone?: SnapZone;
+}
+
+export type SnapZone = 
+  | 'left-half' 
+  | 'right-half' 
+  | 'top-half' 
+  | 'bottom-half'
+  | 'top-left-quarter' 
+  | 'top-right-quarter' 
+  | 'bottom-left-quarter' 
+  | 'bottom-right-quarter'
+  | 'full-screen';
+
+export interface SnapPreview {
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  zone: SnapZone;
+  visible: boolean;
+}
+
+export interface WindowSnapConfig {
+  snapThreshold: number; // Distance from edge to trigger snap
+  animationDuration: number; // Duration of snap animation
+  ghostOpacity: number; // Opacity of ghost preview
+  enableSnapping: boolean; // Master toggle for snapping
 }
 
 export interface AppState {

@@ -7,6 +7,7 @@ import StoryboardView from '../StoryboardView/StoryboardView';
 import DatabaseView from '../DatabaseView/DatabaseView';
 import MapBuilder from '../MapBuilder/MapBuilder';
 import Settings from '../Settings/Settings';
+import { detectSnapZone, applyWindowConstraints, DEFAULT_WINDOW_CONSTRAINTS } from './windowSnapUtils';
 
 interface WindowProps {
   window: WindowState;
@@ -17,12 +18,22 @@ interface WindowProps {
 type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
 const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
-  const { closeWindow, minimizeWindow, updateWindowPosition, updateWindowSize } = useAppStore();
+  const { 
+    closeWindow, 
+    minimizeWindow, 
+    updateWindowPosition, 
+    updateWindowSize, 
+    snapConfig, 
+    setSnapPreview, 
+    snapWindowToZone,
+    unsnapWindow 
+  } = useAppStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeDirection, setResizeDirection] = useState<ResizeDirection | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0, left: 0, top: 0 });
+  const [currentSnapZone, setCurrentSnapZone] = useState<string | null>(null);
   const windowRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -49,13 +60,46 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
     });
   };
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.isSnapped) {
+      unsnapWindow(window.id);
+    }
+  };
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
-        updateWindowPosition(window.id, {
+        const newPosition = {
           x: e.clientX - dragStart.x,
           y: e.clientY - dragStart.y,
-        });
+        };
+
+        // Apply window constraints
+        const constrained = applyWindowConstraints(newPosition, window.size, DEFAULT_WINDOW_CONSTRAINTS);
+        
+        // Check for snap zones if snapping is enabled
+        if (snapConfig.enableSnapping) {
+          const snapResult = detectSnapZone(constrained.position, constrained.size, snapConfig.snapThreshold);
+          
+          if (snapResult.zone && snapResult.distance <= snapConfig.snapThreshold) {
+            // Show snap preview
+            const preview = {
+              position: constrained.position,
+              size: constrained.size,
+              zone: snapResult.zone,
+              visible: true,
+            };
+            setSnapPreview(preview);
+            setCurrentSnapZone(snapResult.zone);
+          } else {
+            // Hide snap preview
+            setSnapPreview({ visible: false });
+            setCurrentSnapZone(null);
+          }
+        }
+
+        updateWindowPosition(window.id, constrained.position);
       } else if (isResizing && resizeDirection) {
         const dx = e.clientX - resizeStart.x;
         const dy = e.clientY - resizeStart.y;
@@ -81,25 +125,40 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
           newTop = resizeStart.top + dy;
         }
 
+        // Apply constraints to resized window
+        const constrained = applyWindowConstraints(
+          { x: newLeft, y: newTop },
+          { width: newWidth, height: newHeight },
+          DEFAULT_WINDOW_CONSTRAINTS
+        );
+
         // Update size
-        if (newWidth !== window.size.width || newHeight !== window.size.height) {
-          updateWindowSize(window.id, {
-            width: newWidth,
-            height: newHeight,
-          });
+        if (constrained.size.width !== window.size.width || constrained.size.height !== window.size.height) {
+          updateWindowSize(window.id, constrained.size);
         }
 
         // Update position (for north and west edges)
-        if (newLeft !== window.position.x || newTop !== window.position.y) {
-          updateWindowPosition(window.id, {
-            x: newLeft,
-            y: newTop,
-          });
+        if (constrained.position.x !== window.position.x || constrained.position.y !== window.position.y) {
+          updateWindowPosition(window.id, constrained.position);
         }
       }
     };
 
     const handleMouseUp = () => {
+      if (isDragging) {
+        // Handle snapping on mouse up
+        if (snapConfig.enableSnapping && currentSnapZone) {
+          snapWindowToZone(window.id, currentSnapZone as any);
+        } else if (window.isSnapped) {
+          // If window was snapped but we're not snapping to a new zone, unsnap it
+          unsnapWindow(window.id);
+        }
+        
+        // Hide snap preview
+        setSnapPreview({ visible: false });
+        setCurrentSnapZone(null);
+      }
+      
       setIsDragging(false);
       setIsResizing(false);
       setResizeDirection(null);
@@ -114,7 +173,7 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, isResizing, resizeDirection, dragStart, resizeStart, window.id, window.size.width, window.size.height, window.position.x, window.position.y, updateWindowPosition, updateWindowSize]);
+  }, [isDragging, isResizing, resizeDirection, dragStart, resizeStart, window.id, window.size.width, window.size.height, window.position.x, window.position.y, window.isSnapped, updateWindowPosition, updateWindowSize, snapConfig, setSnapPreview, snapWindowToZone, unsnapWindow, currentSnapZone]);
 
   const renderWindowContent = () => {
     switch (window.type) {
@@ -152,25 +211,34 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
   return (
     <div
       ref={windowRef}
-      className={`fixed bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-300 dark:border-gray-600 flex flex-col ${
+      className={`fixed bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-300 dark:border-gray-600 flex flex-col transition-all duration-200 ${
         isActive ? 'ring-2 ring-blue-500' : ''
-      }`}
+      } ${window.isSnapped ? 'ring-2 ring-green-500 shadow-2xl' : ''}`}
       style={{
         left: window.position.x,
         top: window.position.y,
         width: window.size.width,
         height: window.size.height,
         zIndex: window.zIndex,
+        transition: window.isSnapped ? 'all 0.2s ease-out' : 'none',
       }}
       onClick={onClick}
       onMouseDown={handleMouseDown}
     >
       {/* Window Header */}
-      <div className="window-header flex items-center justify-between p-3 border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-t-lg cursor-move">
+      <div 
+        className="window-header flex items-center justify-between p-3 border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-t-lg cursor-move"
+        onDoubleClick={handleDoubleClick}
+      >
         <div className="flex items-center space-x-2">
           <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {window.title}
           </div>
+          {window.isSnapped && window.snapZone && (
+            <div className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">
+              {window.snapZone.replace('-', ' ')}
+            </div>
+          )}
         </div>
         <div className="flex items-center space-x-1">
           <button
