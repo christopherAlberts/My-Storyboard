@@ -32,6 +32,9 @@ export interface Character {
   friendships: string; // Friendship relationships
   enemies: string; // Enemy relationships
   
+  // Custom fields
+  customFields: Record<string, any>; // Dynamic custom fields
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -61,6 +64,9 @@ export interface Location {
   connectedLocations: number[]; // Array of connected location IDs
   frequentCharacters: number[]; // Array of character IDs who frequent this location
   
+  // Custom fields
+  customFields: Record<string, any>; // Dynamic custom fields
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -84,6 +90,9 @@ export interface PlotPoint {
   emotionalImpact: string; // Emotional impact on characters/readers
   foreshadowing: string; // How this foreshadows future events
   themes: string[]; // Array of themes this plot point explores
+  
+  // Custom fields
+  customFields: Record<string, any>; // Dynamic custom fields
   
   createdAt: Date;
   updatedAt: Date;
@@ -109,6 +118,9 @@ export interface Chapter {
   pacing: 'slow' | 'medium' | 'fast'; // Pacing of the chapter
   conflict: string; // Main conflict in this chapter
   resolution: string; // How conflicts are resolved
+  
+  // Custom fields
+  customFields: Record<string, any>; // Dynamic custom fields
   
   createdAt: Date;
   updatedAt: Date;
@@ -244,6 +256,34 @@ export class StoryboardDatabase extends Dexie {
     }).upgrade(trans => {
       // Migration from version 2 to 3
       return Promise.resolve();
+    });
+
+    // Version 4 with custom fields
+    this.version(4).stores({
+      characters: '++id, name, role, occupation, socialStatus, createdAt, updatedAt',
+      locations: '++id, name, type, climate, population, createdAt, updatedAt',
+      plotPoints: '++id, title, type, importance, chapterId, order, createdAt, updatedAt',
+      chapters: '++id, title, order, status, wordCount, povCharacter, mainLocation, createdAt, updatedAt',
+      storyboardElements: '++id, type, elementId, chapterId, x, y, createdAt, updatedAt',
+      documents: '++id, title, type, chapterId, createdAt, updatedAt',
+      mapElements: '++id, type, name, x, y, characterId, locationId, createdAt, updatedAt',
+      maps: '++id, title, width, height, createdAt, updatedAt'
+    }).upgrade(trans => {
+      // Migration from version 3 to 4 - add customFields to all entities
+      return Promise.all([
+        trans.characters.toCollection().modify(character => {
+          character.customFields = character.customFields || {};
+        }),
+        trans.locations.toCollection().modify(location => {
+          location.customFields = location.customFields || {};
+        }),
+        trans.plotPoints.toCollection().modify(plotPoint => {
+          plotPoint.customFields = plotPoint.customFields || {};
+        }),
+        trans.chapters.toCollection().modify(chapter => {
+          chapter.customFields = chapter.customFields || {};
+        })
+      ]);
     });
 
     // Add hooks for automatic timestamps

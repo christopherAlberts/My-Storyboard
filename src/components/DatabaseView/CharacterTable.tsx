@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Character } from '../../database/schema';
-import { Edit, Trash2, Plus, Save, X, User, Briefcase, Heart, Users, Sword, MessageSquare, BookOpen } from 'lucide-react';
+import { Edit, Trash2, Plus, Save, X, User, Briefcase, Heart, Users, Sword, MessageSquare, BookOpen, Settings, Minus } from 'lucide-react';
 
 interface CharacterTableProps {
   characters: Character[];
@@ -17,7 +17,9 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
 }) => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<Partial<Character>>({});
-  const [activeTab, setActiveTab] = useState<'basic' | 'details' | 'relationships' | 'chapters'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'details' | 'relationships' | 'chapters' | 'custom'>('basic');
+  const [newCustomFieldName, setNewCustomFieldName] = useState('');
+  const [newCustomFieldValue, setNewCustomFieldValue] = useState('');
 
   const handleEdit = (character: Character) => {
     setEditingId(character.id!);
@@ -44,6 +46,30 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
   const handleArrayChange = (field: keyof Character, value: string) => {
     const arrayValue = value.split(',').map(item => item.trim()).filter(item => item);
     setEditData(prev => ({ ...prev, [field]: arrayValue }));
+  };
+
+  const handleCustomFieldChange = (fieldName: string, value: any) => {
+    setEditData(prev => ({
+      ...prev,
+      customFields: {
+        ...prev.customFields,
+        [fieldName]: value
+      }
+    }));
+  };
+
+  const handleAddCustomField = () => {
+    if (newCustomFieldName.trim()) {
+      handleCustomFieldChange(newCustomFieldName.trim(), newCustomFieldValue);
+      setNewCustomFieldName('');
+      setNewCustomFieldValue('');
+    }
+  };
+
+  const handleRemoveCustomField = (fieldName: string) => {
+    const customFields = { ...editData.customFields };
+    delete customFields[fieldName];
+    setEditData(prev => ({ ...prev, customFields }));
   };
 
   const getRoleColor = (role: Character['role']) => {
@@ -351,6 +377,68 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
     </div>
   );
 
+  const renderCustomFields = () => (
+    <div className="space-y-4">
+      {/* Add new custom field */}
+      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Add Custom Field</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <input
+            type="text"
+            value={newCustomFieldName}
+            onChange={(e) => setNewCustomFieldName(e.target.value)}
+            placeholder="Field name"
+            className="form-input"
+          />
+          <input
+            type="text"
+            value={newCustomFieldValue}
+            onChange={(e) => setNewCustomFieldValue(e.target.value)}
+            placeholder="Field value"
+            className="form-input"
+          />
+        </div>
+        <button
+          onClick={handleAddCustomField}
+          className="mt-3 flex items-center space-x-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Add Field</span>
+        </button>
+      </div>
+
+      {/* Existing custom fields */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Custom Fields</h4>
+        {Object.keys(editData.customFields || {}).length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400 italic">No custom fields added yet</p>
+        ) : (
+          Object.entries(editData.customFields || {}).map(([fieldName, fieldValue]) => (
+            <div key={fieldName} className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {fieldName}
+                </label>
+                <input
+                  type="text"
+                  value={fieldValue || ''}
+                  onChange={(e) => handleCustomFieldChange(fieldName, e.target.value)}
+                  className="form-input"
+                />
+              </div>
+              <button
+                onClick={() => handleRemoveCustomField(fieldName)}
+                className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -466,6 +554,17 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
                       <BookOpen className="w-4 h-4 inline mr-2" />
                       Chapters
                     </button>
+                    <button
+                      onClick={() => setActiveTab('custom')}
+                      className={`px-4 py-3 text-sm font-medium transition-colors ${
+                        activeTab === 'custom'
+                          ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      <Settings className="w-4 h-4 inline mr-2" />
+                      Custom Fields
+                    </button>
                   </div>
 
                   {/* Tab Content */}
@@ -474,23 +573,33 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
                     {activeTab === 'details' && renderDetailedInfo()}
                     {activeTab === 'relationships' && renderRelationships()}
                     {activeTab === 'chapters' && renderChapterInfo()}
+                    {activeTab === 'custom' && renderCustomFields()}
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between p-4 border-t border-gray-200 dark:border-gray-700">
                     <button
-                      onClick={handleCancel}
-                      className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                      onClick={() => onDelete('character', editingId!)}
+                      className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
                     >
-                      Cancel
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete Character</span>
                     </button>
-                    <button
-                      onClick={handleSave}
-                      className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>Save</span>
-                    </button>
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={handleCancel}
+                        className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSave}
+                        className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>Save</span>
+                      </button>
+                    </div>
                   </div>
                 </>
               ) : (

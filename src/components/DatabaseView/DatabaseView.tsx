@@ -67,6 +67,7 @@ const DatabaseView: React.FC = () => {
             romanticRelations: '',
             friendships: '',
             enemies: '',
+            customFields: {},
           };
           await db.characters.add(newCharacter);
           break;
@@ -78,6 +79,19 @@ const DatabaseView: React.FC = () => {
             type: 'indoor',
             atmosphere: '',
             significance: '',
+            notes: '',
+            climate: '',
+            population: '',
+            landmarks: [],
+            history: '',
+            culture: '',
+            economy: '',
+            politics: '',
+            dangers: '',
+            resources: '',
+            connectedLocations: [],
+            frequentCharacters: [],
+            customFields: {},
           };
           await db.locations.add(newLocation);
           break;
@@ -91,6 +105,13 @@ const DatabaseView: React.FC = () => {
             characterIds: [],
             locationIds: [],
             order: 1,
+            notes: '',
+            consequences: '',
+            prerequisites: '',
+            emotionalImpact: '',
+            foreshadowing: '',
+            themes: [],
+            customFields: {},
           };
           await db.plotPoints.add(newPlotPoint);
           break;
@@ -102,6 +123,16 @@ const DatabaseView: React.FC = () => {
             order: chapters.length + 1,
             status: 'draft',
             plotPointIds: [],
+            notes: '',
+            wordCount: 0,
+            povCharacter: 0,
+            mainLocation: 0,
+            themes: [],
+            mood: '',
+            pacing: 'medium',
+            conflict: '',
+            resolution: '',
+            customFields: {},
           };
           await db.chapters.add(newChapter);
           break;
