@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { FileText, Layout, Database, X, Sun, Moon } from 'lucide-react';
+import { FileText, Layout, Database, Map, X, Sun, Moon } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
   const {
@@ -30,6 +30,12 @@ const Sidebar: React.FC = () => {
       icon: Database,
       description: 'Manage characters, locations, and plot points',
     },
+    {
+      id: 'mapbuilder',
+      label: 'Map Builder',
+      icon: Map,
+      description: 'Create interactive town maps with notes and characters',
+    },
   ] as const;
 
   const handleOpenWindow = (type: typeof menuItems[0]['id']) => {
@@ -37,6 +43,7 @@ const Sidebar: React.FC = () => {
       document: 'Document Editor',
       storyboard: 'Storyboard View',
       database: 'Database View',
+      mapbuilder: 'Map Builder',
     };
     
     openWindow(type, titles[type]);
@@ -56,7 +63,7 @@ const Sidebar: React.FC = () => {
       <div
         className={`fixed top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out z-50 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0`}
+        }`}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
@@ -65,7 +72,7 @@ const Sidebar: React.FC = () => {
           </h1>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           >
             <X className="w-5 h-5" />
           </button>

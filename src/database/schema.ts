@@ -147,6 +147,38 @@ export interface Document {
   updatedAt: Date;
 }
 
+export interface MapElement {
+  id?: number;
+  type: 'building' | 'road' | 'landmark' | 'character' | 'note' | 'area';
+  name: string;
+  description: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+  icon?: string;
+  notes: string;
+  characterId?: number; // Reference to character if type is 'character'
+  locationId?: number; // Reference to location if applicable
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface MapData {
+  id?: number;
+  title: string;
+  description: string;
+  width: number;
+  height: number;
+  backgroundColor: string;
+  gridSize: number;
+  showGrid: boolean;
+  elements: MapElement[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export class StoryboardDatabase extends Dexie {
   characters!: Table<Character>;
   locations!: Table<Location>;
@@ -154,6 +186,8 @@ export class StoryboardDatabase extends Dexie {
   chapters!: Table<Chapter>;
   storyboardElements!: Table<StoryboardElement>;
   documents!: Table<Document>;
+  mapElements!: Table<MapElement>;
+  maps!: Table<MapData>;
 
   constructor() {
     super('StoryboardDatabase');
@@ -195,6 +229,21 @@ export class StoryboardDatabase extends Dexie {
         character.friendships = character.friendships || '';
         character.enemies = character.enemies || '';
       });
+    });
+
+    // Version 3 with map functionality
+    this.version(3).stores({
+      characters: '++id, name, role, occupation, socialStatus, createdAt, updatedAt',
+      locations: '++id, name, type, climate, population, createdAt, updatedAt',
+      plotPoints: '++id, title, type, importance, chapterId, order, createdAt, updatedAt',
+      chapters: '++id, title, order, status, wordCount, povCharacter, mainLocation, createdAt, updatedAt',
+      storyboardElements: '++id, type, elementId, chapterId, x, y, createdAt, updatedAt',
+      documents: '++id, title, type, chapterId, createdAt, updatedAt',
+      mapElements: '++id, type, name, x, y, characterId, locationId, createdAt, updatedAt',
+      maps: '++id, title, width, height, createdAt, updatedAt'
+    }).upgrade(trans => {
+      // Migration from version 2 to 3
+      return Promise.resolve();
     });
 
     // Add hooks for automatic timestamps
@@ -249,6 +298,24 @@ export class StoryboardDatabase extends Dexie {
     });
 
     this.documents.hook('updating', function (modifications, primKey, obj, trans) {
+      modifications.updatedAt = new Date();
+    });
+
+    this.mapElements.hook('creating', function (primKey, obj, trans) {
+      obj.createdAt = new Date();
+      obj.updatedAt = new Date();
+    });
+
+    this.mapElements.hook('updating', function (modifications, primKey, obj, trans) {
+      modifications.updatedAt = new Date();
+    });
+
+    this.maps.hook('creating', function (primKey, obj, trans) {
+      obj.createdAt = new Date();
+      obj.updatedAt = new Date();
+    });
+
+    this.maps.hook('updating', function (modifications, primKey, obj, trans) {
       modifications.updatedAt = new Date();
     });
   }

@@ -2,10 +2,10 @@ import { useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
 import Sidebar from './components/Sidebar/Sidebar';
 import WindowManager from './components/WindowManager/WindowManager';
-import { Menu } from 'lucide-react';
+import { Menu, PanelLeft } from 'lucide-react';
 
 function App() {
-  const { sidebarOpen, setSidebarOpen, theme } = useAppStore();
+  const { sidebarOpen, setSidebarOpen, theme, toggleSidebar } = useAppStore();
 
   // Apply theme to document
   useEffect(() => {
@@ -22,12 +22,23 @@ function App() {
         <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
       </button>
 
+      {/* Sidebar toggle button - only show when sidebar is hidden */}
+      {!sidebarOpen && (
+        <button
+          onClick={toggleSidebar}
+          className="fixed top-4 left-4 z-50 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          title="Show Sidebar"
+        >
+          <PanelLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+        </button>
+      )}
+
       {/* Sidebar */}
       <Sidebar />
 
       {/* Main content area */}
       <div className={`h-full transition-all duration-300 ${
-        sidebarOpen ? 'lg:ml-64' : 'ml-0'
+        sidebarOpen ? 'ml-64' : 'ml-0'
       }`}>
         <WindowManager />
       </div>
@@ -44,7 +55,7 @@ function App() {
               Create your story with our powerful document editor, infinite storyboard canvas, and database management system.
             </p>
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              Click on the menu items in the sidebar to get started
+              Click the sidebar button in the top-left corner to open the menu
             </div>
           </div>
         </div>

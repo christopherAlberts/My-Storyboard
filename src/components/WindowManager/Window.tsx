@@ -5,6 +5,7 @@ import { X, Minus, Square } from 'lucide-react';
 import DocumentEditor from '../DocumentEditor/DocumentEditor';
 import StoryboardView from '../StoryboardView/StoryboardView';
 import DatabaseView from '../DatabaseView/DatabaseView';
+import MapBuilder from '../MapBuilder/MapBuilder';
 
 interface WindowProps {
   window: WindowState;
@@ -82,6 +83,8 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
         return <StoryboardView />;
       case 'database':
         return <DatabaseView />;
+      case 'mapbuilder':
+        return <MapBuilder />;
       default:
         return <div>Unknown window type</div>;
     }

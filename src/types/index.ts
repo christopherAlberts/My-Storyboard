@@ -1,6 +1,6 @@
 export interface WindowState {
   id: string;
-  type: 'document' | 'storyboard' | 'database';
+  type: 'document' | 'storyboard' | 'database' | 'mapbuilder';
   title: string;
   isOpen: boolean;
   isMinimized: boolean;
