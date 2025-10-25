@@ -13,7 +13,7 @@ function App() {
   }, [theme]);
 
   return (
-    <div className={`h-screen w-screen overflow-hidden ${theme === 'dark' ? 'dark' : ''}`}>
+    <div className={`h-screen w-screen overflow-hidden bg-white dark:bg-gray-900 ${theme === 'dark' ? 'dark' : ''}`}>
       {/* Mobile menu button */}
       <button
         onClick={() => setSidebarOpen(true)}
