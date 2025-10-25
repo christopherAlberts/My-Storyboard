@@ -1,58 +1,60 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { fabric } from 'fabric';
 import { StoryboardElement, StoryboardCanvas as CanvasState } from '../../types';
 import { Character, Location, PlotPoint } from '../../database/schema';
+import { Link, Unlink, ZoomIn, ZoomOut, Maximize2, Grid } from 'lucide-react';
 
 interface StoryboardCanvasProps {
   elements: StoryboardElement[];
+  characters: Character[];
+  locations: Location[];
+  plotPoints: PlotPoint[];
   canvas: CanvasState;
   onUpdateCanvas: (updates: Partial<CanvasState>) => void;
   onUpdateElement: (id: number, updates: Partial<StoryboardElement>) => void;
   onDeleteElement: (id: number) => void;
   onConnectElements: (fromId: number, toId: number) => void;
+  onAddElement: (type: StoryboardElement['type'], elementId?: number, content?: string) => void;
 }
 
 const StoryboardCanvas: React.FC<StoryboardCanvasProps> = ({
   elements,
+  characters,
+  locations,
+  plotPoints,
   canvas,
   onUpdateCanvas,
   onUpdateElement,
   onDeleteElement,
   onConnectElements,
+  onAddElement,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [selectedElements, setSelectedElements] = useState<string[]>([]);
+  const gridSize = 20;
+  const [isDragging, setIsDragging] = useState(false);
+  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+  const [connectionMode, setConnectionMode] = useState(false);
+  const [connectionStart, setConnectionStart] = useState<number | null>(null);
+  const [isDraggingFromPalette, setIsDraggingFromPalette] = useState(false);
+  const [dragData, setDragData] = useState<{type: StoryboardElement['type'], elementId?: number} | null>(null);
 
+  // Initialize canvas
   useEffect(() => {
     if (canvasRef.current && !fabricCanvasRef.current) {
       fabricCanvasRef.current = new fabric.Canvas(canvasRef.current, {
         width: window.innerWidth,
         height: window.innerHeight,
-        backgroundColor: '#f8f9fa',
+        backgroundColor: '#ffffff',
         selection: true,
+        preserveObjectStacking: true,
       });
 
-      // Set up drawing mode
-      fabricCanvasRef.current.isDrawingMode = canvas.drawingMode === 'pen';
-      fabricCanvasRef.current.freeDrawingBrush.width = canvas.brushSize;
-      fabricCanvasRef.current.freeDrawingBrush.color = canvas.brushColor;
+      // Set initial zoom
+      fabricCanvasRef.current.setZoom(canvas.zoom);
 
-      // Handle selection
-      fabricCanvasRef.current.on('selection:created', handleSelection);
-      fabricCanvasRef.current.on('selection:updated', handleSelection);
-      fabricCanvasRef.current.on('selection:cleared', () => setSelectedElements([]));
-
-      // Handle object modification
-      fabricCanvasRef.current.on('object:modified', handleObjectModified);
-      fabricCanvasRef.current.on('object:moving', handleObjectMoving);
-      fabricCanvasRef.current.on('object:scaling', handleObjectScaling);
-
-      // Handle mouse events for panning
-      fabricCanvasRef.current.on('mouse:down', handleMouseDown);
-      fabricCanvasRef.current.on('mouse:move', handleMouseMove);
-      fabricCanvasRef.current.on('mouse:up', handleMouseUp);
+      // Event handlers
+      setupCanvasEvents();
     }
 
     return () => {
@@ -63,278 +65,400 @@ const StoryboardCanvas: React.FC<StoryboardCanvasProps> = ({
     };
   }, []);
 
+  // Setup canvas events
+  const setupCanvasEvents = () => {
+    if (!fabricCanvasRef.current) return;
+
+    // Handle zoom with mouse wheel
+    fabricCanvasRef.current.on('mouse:wheel', (opt) => {
+      const delta = opt.e.deltaY;
+      const zoom = fabricCanvasRef.current!.getZoom();
+      const newZoom = Math.max(0.1, Math.min(3, zoom - delta / 200));
+      
+      // Zoom towards mouse position
+      const point = new fabric.Point(opt.pointer!.x, opt.pointer!.y);
+      fabricCanvasRef.current!.zoomToPoint(point, newZoom);
+      
+      onUpdateCanvas({ zoom: newZoom });
+      opt.e.preventDefault();
+    });
+
+    // Handle panning with middle mouse or space + drag
+    fabricCanvasRef.current.on('mouse:down', (opt) => {
+      if (opt.e.button === 1 || opt.e.spaceKey) {
+        setIsDragging(true);
+        setLastMousePos({ x: opt.e.clientX, y: opt.e.clientY });
+        fabricCanvasRef.current!.setCursor('grabbing');
+      }
+    });
+
+    fabricCanvasRef.current.on('mouse:move', (opt) => {
+      if (isDragging && fabricCanvasRef.current) {
+        const vpt = fabricCanvasRef.current.viewportTransform;
+        if (vpt) {
+          const dx = opt.e.clientX - lastMousePos.x;
+          const dy = opt.e.clientY - lastMousePos.y;
+          vpt[4] += dx;
+          vpt[5] += dy;
+          fabricCanvasRef.current.requestRenderAll();
+        }
+        setLastMousePos({ x: opt.e.clientX, y: opt.e.clientY });
+      }
+
+      // Update connection preview during link mode
+      if (connectionMode && connectionStart !== null && fabricCanvasRef.current) {
+        fabricCanvasRef.current.renderAll();
+      }
+    });
+
+    fabricCanvasRef.current.on('mouse:up', () => {
+      setIsDragging(false);
+      fabricCanvasRef.current!.setCursor('default');
+    });
+
+    // Handle element selection for connection mode
+    fabricCanvasRef.current.on('mouse:down', (opt) => {
+      if (connectionMode && !connectionStart) {
+        const obj = opt.target;
+        if (obj && obj.data) {
+          setConnectionStart(obj.data.id);
+        }
+      } else if (connectionMode && connectionStart) {
+        const obj = opt.target;
+        if (obj && obj.data && obj.data.id !== connectionStart) {
+          onConnectElements(connectionStart, obj.data.id);
+          setConnectionStart(null);
+          setConnectionMode(false);
+          fabricCanvasRef.current!.renderAll();
+        }
+      }
+    });
+
+    // Handle canvas click for dropping elements
+    fabricCanvasRef.current.on('mouse:down', (opt) => {
+      if (isDraggingFromPalette && dragData) {
+        const pointer = fabricCanvasRef.current!.getPointer(opt.e, false);
+        
+        // Create new element
+        onAddElement(dragData.type, dragData.elementId);
+        
+        // Reset drag state
+        setIsDraggingFromPalette(false);
+        setDragData(null);
+      }
+    });
+
+    // Handle element position updates
+    fabricCanvasRef.current.on('object:modified', (e) => {
+      const obj = e.target;
+      if (obj && obj.data) {
+        const coords = obj.getCoords();
+        onUpdateElement(obj.data.id, {
+          x: obj.left || 0,
+          y: obj.top || 0,
+          width: (coords[1].x - coords[0].x) / fabricCanvasRef.current!.getZoom(),
+          height: (coords[3].y - coords[0].y) / fabricCanvasRef.current!.getZoom(),
+        });
+      }
+    });
+
+    // Delete element on Delete key
+    fabricCanvasRef.current.on('key:down', (opt) => {
+      if (opt.key === 'Delete' || opt.key === 'Backspace') {
+        const activeObjects = fabricCanvasRef.current!.getActiveObjects();
+        activeObjects.forEach(obj => {
+          if (obj.data) {
+            onDeleteElement(obj.data.id);
+            fabricCanvasRef.current!.remove(obj);
+          }
+        });
+      }
+    });
+  };
+
+  // Update canvas zoom/pan
   useEffect(() => {
     if (fabricCanvasRef.current) {
       fabricCanvasRef.current.setZoom(canvas.zoom);
-      fabricCanvasRef.current.viewportTransform = [
-        canvas.zoom, 0, 0, canvas.zoom, canvas.panX, canvas.panY
-      ];
+      const vpt = fabricCanvasRef.current.viewportTransform;
+      if (vpt) {
+        vpt[4] = canvas.panX;
+        vpt[5] = canvas.panY;
+        fabricCanvasRef.current.requestRenderAll();
+      }
     }
   }, [canvas.zoom, canvas.panX, canvas.panY]);
 
+  // Render elements
   useEffect(() => {
-    if (fabricCanvasRef.current) {
-      // Clear existing objects
-      fabricCanvasRef.current.clear();
-
-      // Add elements as fabric objects
-      elements.forEach(element => {
-        const fabricObject = createFabricObject(element);
-        if (fabricObject) {
-          fabricCanvasRef.current!.add(fabricObject);
-        }
-      });
-
-      // Add connections
-      elements.forEach(element => {
-        element.connections.forEach(connectionId => {
-          const connectedElement = elements.find(el => el.id === connectionId);
-          if (connectedElement) {
-            drawConnection(element, connectedElement);
-          }
-        });
-      });
-
-      fabricCanvasRef.current.renderAll();
-    }
-  }, [elements]);
-
-  const createFabricObject = (element: StoryboardElement): fabric.Object | null => {
-    const { x, y, width, height, style, type, content } = element;
-
-    let fabricObject: fabric.Object;
-
-    switch (type) {
-      case 'character':
-        fabricObject = new fabric.Rect({
-          left: x,
-          top: y,
-          width,
-          height,
-          fill: style.backgroundColor || '#e3f2fd',
-          stroke: style.borderColor || '#cccccc',
-          strokeWidth: style.borderWidth || 1,
-          selectable: true,
-          data: { id: element.id, type: 'character' },
-        });
-        break;
-
-      case 'location':
-        fabricObject = new fabric.Rect({
-          left: x,
-          top: y,
-          width,
-          height,
-          fill: style.backgroundColor || '#f3e5f5',
-          stroke: style.borderColor || '#cccccc',
-          strokeWidth: style.borderWidth || 1,
-          selectable: true,
-          data: { id: element.id, type: 'location' },
-        });
-        break;
-
-      case 'plot_point':
-        fabricObject = new fabric.Rect({
-          left: x,
-          top: y,
-          width,
-          height,
-          fill: style.backgroundColor || '#fff3e0',
-          stroke: style.borderColor || '#cccccc',
-          strokeWidth: style.borderWidth || 1,
-          selectable: true,
-          data: { id: element.id, type: 'plot_point' },
-        });
-        break;
-
-      case 'note':
-        fabricObject = new fabric.Textbox(content || 'Note', {
-          left: x,
-          top: y,
-          width,
-          height,
-          fill: style.color || '#000000',
-          fontSize: style.fontSize || 14,
-          fontFamily: style.fontFamily || 'Inter',
-          backgroundColor: style.backgroundColor || '#fff3e0',
-          selectable: true,
-          data: { id: element.id, type: 'note' },
-        });
-        break;
-
-      case 'drawing':
-        // For drawings, we'll create a simple rectangle placeholder
-        // In a real implementation, you'd handle the actual drawing data
-        fabricObject = new fabric.Rect({
-          left: x,
-          top: y,
-          width,
-          height,
-          fill: 'transparent',
-          stroke: style.color || '#000000',
-          strokeWidth: style.borderWidth || 2,
-          selectable: true,
-          data: { id: element.id, type: 'drawing' },
-        });
-        break;
-
-      default:
-        return null;
-    }
-
-    return fabricObject;
-  };
-
-  const drawConnection = (from: StoryboardElement, to: StoryboardElement) => {
     if (!fabricCanvasRef.current) return;
 
-    const line = new fabric.Line([
-      from.x + from.width / 2,
-      from.y + from.height / 2,
-      to.x + to.width / 2,
-      to.y + to.height / 2
-    ], {
-      stroke: '#666666',
-      strokeWidth: 2,
-      selectable: false,
-      evented: false,
+    // Clear existing objects
+    const objects = fabricCanvasRef.current.getObjects();
+    objects.forEach(obj => {
+      if (!obj.locked) {
+        fabricCanvasRef.current!.remove(obj);
+      }
     });
 
-    fabricCanvasRef.current.add(line);
-  };
+    // Draw grid
+    drawGrid();
 
-  const handleSelection = (e: fabric.IEvent) => {
-    const selected = e.selected || [];
-    setSelectedElements(selected.map(obj => obj.data?.id).filter(Boolean));
-  };
+    // Render elements
+    elements.forEach(element => {
+      const obj = createFabricElement(element);
+      if (obj) {
+        fabricCanvasRef.current!.add(obj);
+      }
+    });
 
-  const handleObjectModified = (e: fabric.IEvent) => {
-    const obj = e.target;
-    if (obj && obj.data) {
-      onUpdateElement(obj.data.id, {
-        x: obj.left || 0,
-        y: obj.top || 0,
-        width: obj.width || 0,
-        height: obj.height || 0,
+    // Draw connections
+    renderConnections();
+
+    fabricCanvasRef.current.renderAll();
+  }, [elements]);
+
+  // Draw grid background
+  const drawGrid = () => {
+    if (!fabricCanvasRef.current) return;
+
+    const width = fabricCanvasRef.current.width;
+    const height = fabricCanvasRef.current.height;
+    const gridGroup = new fabric.Group([], {
+      selectable: false,
+      evented: false,
+      lockMovementX: true,
+      lockMovementY: true,
+      hoverCursor: 'default',
+    });
+
+    // Draw vertical lines
+    for (let i = 0; i < width; i += gridSize) {
+      const line = new fabric.Line([i, 0, i, height], {
+        stroke: '#e5e7eb',
+        strokeWidth: 1,
+        selectable: false,
+        evented: false,
+        excludeFromExport: true,
       });
+      gridGroup.addWithUpdate(line);
     }
-  };
 
-  const handleObjectMoving = (e: fabric.IEvent) => {
-    // Real-time position updates during dragging
-  };
-
-  const handleObjectScaling = (e: fabric.IEvent) => {
-    // Real-time size updates during scaling
-  };
-
-  const handleMouseDown = (e: fabric.IEvent) => {
-    const event = e.e as MouseEvent;
-    if (event.ctrlKey || event.metaKey) {
-      // Start panning
-      (fabricCanvasRef.current as any).isDragging = true;
-      (fabricCanvasRef.current as any).lastPosX = event.clientX;
-      (fabricCanvasRef.current as any).lastPosY = event.clientY;
+    // Draw horizontal lines
+    for (let i = 0; i < height; i += gridSize) {
+      const line = new fabric.Line([0, i, width, i], {
+        stroke: '#e5e7eb',
+        strokeWidth: 1,
+        selectable: false,
+        evented: false,
+        excludeFromExport: true,
+      });
+      gridGroup.addWithUpdate(line);
     }
+
+    fabricCanvasRef.current.add(gridGroup);
   };
 
-  const handleMouseMove = (e: fabric.IEvent) => {
-    const event = e.e as MouseEvent;
-    const canvas = fabricCanvasRef.current;
-    if ((canvas as any).isDragging) {
-      const vpt = canvas!.viewportTransform;
-      if (vpt) {
-        vpt[4] += event.clientX - (canvas as any).lastPosX;
-        vpt[5] += event.clientY - (canvas as any).lastPosY;
-        canvas!.requestRenderAll();
-        (canvas as any).lastPosX = event.clientX;
-        (canvas as any).lastPosY = event.clientY;
+  // Create fabric element from storyboard element
+  const createFabricElement = (element: StoryboardElement): fabric.Object | null => {
+    const getElementData = () => {
+      switch (element.type) {
+        case 'character':
+          const char = characters.find(c => c.id === element.elementId);
+          return { title: char?.name || 'Character', icon: '👤', color: '#3b82f6' };
+        case 'location':
+          const loc = locations.find(l => l.id === element.elementId);
+          return { title: loc?.name || 'Location', icon: '📍', color: '#8b5cf6' };
+        case 'plot_point':
+          const plot = plotPoints.find(p => p.id === element.elementId);
+          return { title: plot?.title || 'Plot Point', icon: '🎯', color: '#f59e0b' };
+        case 'note':
+          return { title: element.content || 'Note', icon: '📝', color: '#10b981' };
+        default:
+          return { title: 'Element', icon: '📦', color: '#6b7280' };
       }
-    }
+    };
+
+    const data = getElementData();
+
+    // Create a card-like element
+    const rect = new fabric.Rect({
+      width: element.width,
+      height: element.height,
+      rx: 8,
+      ry: 8,
+      fill: '#ffffff',
+      stroke: data.color,
+      strokeWidth: 2,
+      shadow: new fabric.Shadow({
+        color: 'rgba(0,0,0,0.1)',
+        blur: 10,
+        offsetX: 0,
+        offsetY: 2,
+      }),
+    });
+
+    // Add icon
+    const icon = new fabric.Text(data.icon, {
+      fontSize: 32,
+      left: 10,
+      top: 10,
+      originX: 'left',
+      originY: 'top',
+    });
+
+    // Add title
+    const title = new fabric.Textbox(data.title, {
+      fontSize: 14,
+      fontWeight: 'bold',
+      left: 50,
+      top: 10,
+      width: element.width - 60,
+      fill: '#1f2937',
+      splitByGrapheme: true,
+    });
+
+    const group = new fabric.Group([rect, icon, title], {
+      left: element.x,
+      top: element.y,
+      data: { id: element.id, type: element.type },
+    });
+
+    return group;
   };
 
-  const handleMouseUp = () => {
-    const canvas = fabricCanvasRef.current;
-    if ((canvas as any).isDragging) {
-      (canvas as any).isDragging = false;
-      // Update pan position in store
-      const vpt = canvas!.viewportTransform;
-      if (vpt) {
-        onUpdateCanvas({
-          panX: vpt[4],
-          panY: vpt[5],
-        });
-      }
-    }
+  // Render connections between elements
+  const renderConnections = () => {
+    if (!fabricCanvasRef.current) return;
+
+    elements.forEach(element => {
+      element.connections.forEach(connectionId => {
+        const connectedElement = elements.find(el => el.id === connectionId);
+        if (connectedElement) {
+          const fromCenter = {
+            x: element.x + element.width / 2,
+            y: element.y + element.height / 2,
+          };
+          const toCenter = {
+            x: connectedElement.x + connectedElement.width / 2,
+            y: connectedElement.y + connectedElement.height / 2,
+          };
+
+          // Draw arrow line
+          const angle = Math.atan2(toCenter.y - fromCenter.y, toCenter.x - fromCenter.x);
+          const arrowLength = 15;
+          const arrowWidth = 8;
+
+          // Line
+          const line = new fabric.Line([fromCenter.x, fromCenter.y, toCenter.x, toCenter.y], {
+            stroke: '#6b7280',
+            strokeWidth: 2,
+            selectable: false,
+            evented: false,
+            strokeDashArray: [5, 5],
+          });
+
+          // Arrowhead
+          const arrowhead = new fabric.Polygon([
+            { x: toCenter.x, y: toCenter.y },
+            { x: toCenter.x - arrowLength * Math.cos(angle) + arrowWidth * Math.sin(angle), y: toCenter.y - arrowLength * Math.sin(angle) - arrowWidth * Math.cos(angle) },
+            { x: toCenter.x - arrowLength * Math.cos(angle) - arrowWidth * Math.sin(angle), y: toCenter.y - arrowLength * Math.sin(angle) + arrowWidth * Math.cos(angle) },
+          ], {
+            fill: '#6b7280',
+            stroke: '#6b7280',
+            selectable: false,
+            evented: false,
+          });
+
+          fabricCanvasRef.current!.add(line);
+          fabricCanvasRef.current!.add(arrowhead);
+        }
+      });
+    });
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY;
-    const zoom = canvas.zoom * (1 - delta / 1000);
-    const newZoom = Math.max(0.1, Math.min(3, zoom));
-    
+  const handleZoomIn = () => {
+    const newZoom = Math.min(3, canvas.zoom * 1.2);
     onUpdateCanvas({ zoom: newZoom });
   };
 
+  const handleZoomOut = () => {
+    const newZoom = Math.max(0.1, canvas.zoom * 0.8);
+    onUpdateCanvas({ zoom: newZoom });
+  };
+
+  const handleResetView = () => {
+    onUpdateCanvas({ zoom: 1, panX: 0, panY: 0 });
+  };
+
+  const toggleConnectionMode = () => {
+    setConnectionMode(!connectionMode);
+    setConnectionStart(null);
+    if (fabricCanvasRef.current) {
+      fabricCanvasRef.current.defaultCursor = !connectionMode ? 'crosshair' : 'default';
+      fabricCanvasRef.current.renderAll();
+    }
+  };
+
   return (
-    <div className="relative w-full h-full overflow-hidden">
+    <div className="relative w-full h-full overflow-hidden bg-gray-50">
       <canvas
         ref={canvasRef}
-        onWheel={handleWheel}
-        className="cursor-crosshair"
+        className="cursor-default"
       />
       
-      {/* Canvas Controls */}
-      <div className="absolute top-4 right-4 flex flex-col space-y-2">
+      {/* Zoom Controls */}
+      <div className="absolute top-4 right-4 flex flex-col gap-2 bg-white rounded-lg shadow-lg p-2">
         <button
-          onClick={() => onUpdateCanvas({ zoom: canvas.zoom * 1.2 })}
-          className="p-2 bg-white dark:bg-gray-800 rounded shadow hover:bg-gray-50 dark:hover:bg-gray-700"
+          onClick={handleZoomIn}
+          className="p-2 hover:bg-gray-100 rounded transition-colors"
+          title="Zoom In"
         >
-          +
+          <ZoomIn className="w-5 h-5" />
+        </button>
+        <div className="text-xs text-center text-gray-600 min-w-[40px]">
+          {Math.round(canvas.zoom * 100)}%
+        </div>
+        <button
+          onClick={handleZoomOut}
+          className="p-2 hover:bg-gray-100 rounded transition-colors"
+          title="Zoom Out"
+        >
+          <ZoomOut className="w-5 h-5" />
         </button>
         <button
-          onClick={() => onUpdateCanvas({ zoom: canvas.zoom * 0.8 })}
-          className="p-2 bg-white dark:bg-gray-800 rounded shadow hover:bg-gray-50 dark:hover:bg-gray-700"
+          onClick={handleResetView}
+          className="p-2 hover:bg-gray-100 rounded transition-colors"
+          title="Reset View"
         >
-          -
-        </button>
-        <button
-          onClick={() => onUpdateCanvas({ zoom: 1, panX: 0, panY: 0 })}
-          className="p-2 bg-white dark:bg-gray-800 rounded shadow hover:bg-gray-50 dark:hover:bg-gray-700"
-        >
-          ⌂
+          <Maximize2 className="w-5 h-5" />
         </button>
       </div>
 
-      {/* Drawing Controls */}
-      <div className="absolute bottom-4 left-4 flex space-x-2">
+      {/* Connection Mode Button */}
+      <div className="absolute top-4 left-4 flex gap-2">
         <button
-          onClick={() => onUpdateCanvas({ drawingMode: 'pen' })}
-          className={`p-2 rounded ${canvas.drawingMode === 'pen' ? 'bg-blue-500 text-white' : 'bg-white dark:bg-gray-800'}`}
+          onClick={toggleConnectionMode}
+          className={`px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-colors ${
+            connectionMode
+              ? 'bg-blue-600 text-white'
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+          title={connectionMode ? 'Exit Connection Mode (Click first element, then second)' : 'Connect Elements'}
         >
-          ✏️
+          {connectionMode ? <Unlink className="w-5 h-5" /> : <Link className="w-5 h-5" />}
+          <span className="text-sm font-medium">
+            {connectionMode ? 'Linking...' : 'Link'}
+          </span>
         </button>
-        <button
-          onClick={() => onUpdateCanvas({ drawingMode: 'select' })}
-          className={`p-2 rounded ${canvas.drawingMode === 'select' ? 'bg-blue-500 text-white' : 'bg-white dark:bg-gray-800'}`}
-        >
-          ↖️
-        </button>
-        <input
-          type="range"
-          min="1"
-          max="20"
-          value={canvas.brushSize}
-          onChange={(e) => onUpdateCanvas({ brushSize: parseInt(e.target.value) })}
-          className="w-20"
-        />
-        <input
-          type="color"
-          value={canvas.brushColor}
-          onChange={(e) => onUpdateCanvas({ brushColor: e.target.value })}
-          className="w-8 h-8 rounded"
-        />
+      </div>
+
+      {/* Info Panel */}
+      <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-3 text-sm">
+        <div className="flex items-center gap-2 text-gray-600">
+          <Grid className="w-4 h-4" />
+          <span>Pan: Space + Drag • Zoom: Scroll Wheel</span>
+        </div>
       </div>
     </div>
   );

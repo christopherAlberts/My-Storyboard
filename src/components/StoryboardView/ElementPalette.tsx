@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Character, Location, PlotPoint } from '../../database/schema';
-import { Plus, User, MapPin, Target, StickyNote } from 'lucide-react';
+import { Plus, User, MapPin, Target, StickyNote, GripVertical } from 'lucide-react';
 
 interface ElementPaletteProps {
   characters: Character[];
@@ -16,6 +16,15 @@ const ElementPalette: React.FC<ElementPaletteProps> = ({
   onAddElement,
 }) => {
   const [activeTab, setActiveTab] = useState<'characters' | 'locations' | 'plotPoints' | 'notes'>('characters');
+  const [draggedItem, setDraggedItem] = useState<{type: 'character' | 'location' | 'plot_point' | 'note', id?: number} | null>(null);
+
+  const handleDragStart = (type: 'character' | 'location' | 'plot_point' | 'note', id?: number) => {
+    setDraggedItem({ type, id });
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+  };
 
   const renderCharacters = () => (
     <div className="space-y-2">
@@ -32,11 +41,16 @@ const ElementPalette: React.FC<ElementPaletteProps> = ({
         {characters.map((character) => (
           <div
             key={character.id}
-            className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+            className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors group"
             onClick={() => onAddElement('character', character.id)}
+            draggable
+            onDragStart={() => handleDragStart('character', character.id)}
+            onDragEnd={handleDragEnd}
           >
+            <GripVertical className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
             <User className="w-4 h-4 text-gray-500" />
-            <span className="text-sm text-gray-700 dark:text-gray-300">{character.name}</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">{character.name}</span>
+            <span className="text-xs text-gray-400">Drag to canvas</span>
           </div>
         ))}
         {characters.length === 0 && (
@@ -63,11 +77,16 @@ const ElementPalette: React.FC<ElementPaletteProps> = ({
         {locations.map((location) => (
           <div
             key={location.id}
-            className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+            className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors group"
             onClick={() => onAddElement('location', location.id)}
+            draggable
+            onDragStart={() => handleDragStart('location', location.id)}
+            onDragEnd={handleDragEnd}
           >
+            <GripVertical className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
             <MapPin className="w-4 h-4 text-gray-500" />
-            <span className="text-sm text-gray-700 dark:text-gray-300">{location.name}</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">{location.name}</span>
+            <span className="text-xs text-gray-400">Drag to canvas</span>
           </div>
         ))}
         {locations.length === 0 && (
@@ -94,11 +113,16 @@ const ElementPalette: React.FC<ElementPaletteProps> = ({
         {plotPoints.map((plotPoint) => (
           <div
             key={plotPoint.id}
-            className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+            className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors group"
             onClick={() => onAddElement('plot_point', plotPoint.id)}
+            draggable
+            onDragStart={() => handleDragStart('plot_point', plotPoint.id)}
+            onDragEnd={handleDragEnd}
           >
+            <GripVertical className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
             <Target className="w-4 h-4 text-gray-500" />
-            <span className="text-sm text-gray-700 dark:text-gray-300">{plotPoint.title}</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">{plotPoint.title}</span>
+            <span className="text-xs text-gray-400">Drag to canvas</span>
           </div>
         ))}
         {plotPoints.length === 0 && (

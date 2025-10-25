@@ -133,11 +133,15 @@ const StoryboardView: React.FC = () => {
         <div className="flex-1 relative">
           <StoryboardCanvas
             elements={elements}
+            characters={characters}
+            locations={locations}
+            plotPoints={plotPoints}
             canvas={storyboardCanvas}
             onUpdateCanvas={updateStoryboardCanvas}
             onUpdateElement={updateElement}
             onDeleteElement={deleteElement}
             onConnectElements={connectElements}
+            onAddElement={addElement}
           />
         </div>
       </div>
