@@ -1,6 +1,6 @@
 export interface WindowState {
   id: string;
-  type: 'document' | 'storyboard' | 'database' | 'mapbuilder';
+  type: 'document' | 'storyboard' | 'database' | 'mapbuilder' | 'settings';
   title: string;
   isOpen: boolean;
   isMinimized: boolean;
@@ -12,7 +12,7 @@ export interface WindowState {
 export interface AppState {
   windows: WindowState[];
   activeWindowId: string | null;
-  theme: 'light' | 'dark';
+  theme: 'light' | 'dark' | 'system';
   sidebarOpen: boolean;
 }
 

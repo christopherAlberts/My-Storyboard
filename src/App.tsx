@@ -9,7 +9,27 @@ function App() {
 
   // Apply theme to document
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+    const applyTheme = () => {
+      let isDark = false;
+      
+      if (theme === 'system') {
+        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      } else {
+        isDark = theme === 'dark';
+      }
+      
+      document.documentElement.classList.toggle('dark', isDark);
+    };
+
+    applyTheme();
+
+    // Listen for system theme changes
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = () => applyTheme();
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
   }, [theme]);
 
   return (

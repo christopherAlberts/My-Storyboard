@@ -16,7 +16,7 @@ interface AppStore extends AppState {
   
   // Theme
   toggleTheme: () => void;
-  setTheme: (theme: 'light' | 'dark') => void;
+  setTheme: (theme: 'light' | 'dark' | 'system') => void;
   
   // Sidebar
   toggleSidebar: () => void;
@@ -81,7 +81,7 @@ export const useAppStore = create<AppStore>()(
       // Initial state
       windows: [],
       activeWindowId: null,
-      theme: 'light',
+      theme: 'dark',
       sidebarOpen: true,
       storyboardCanvas: initialStoryboardCanvas,
       documentState: initialDocumentState,
@@ -172,7 +172,7 @@ export const useAppStore = create<AppStore>()(
       // Theme
       toggleTheme: () => {
         set((state) => ({
-          theme: state.theme === 'light' ? 'dark' : 'light',
+          theme: state.theme === 'light' ? 'dark' : state.theme === 'dark' ? 'system' : 'light',
         }));
       },
 

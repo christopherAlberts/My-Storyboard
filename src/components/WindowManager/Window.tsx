@@ -6,6 +6,7 @@ import DocumentEditor from '../DocumentEditor/DocumentEditor';
 import StoryboardView from '../StoryboardView/StoryboardView';
 import DatabaseView from '../DatabaseView/DatabaseView';
 import MapBuilder from '../MapBuilder/MapBuilder';
+import Settings from '../Settings/Settings';
 
 interface WindowProps {
   window: WindowState;
@@ -125,6 +126,8 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
         return <DatabaseView />;
       case 'mapbuilder':
         return <MapBuilder />;
+      case 'settings':
+        return <Settings />;
       default:
         return <div>Unknown window type</div>;
     }
