@@ -106,7 +106,7 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
   return (
     <div
       ref={windowRef}
-      className={`fixed bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-300 dark:border-gray-600 ${
+      className={`fixed bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-300 dark:border-gray-600 flex flex-col ${
         isActive ? 'ring-2 ring-blue-500' : ''
       }`}
       style={{
@@ -149,7 +149,7 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
       </div>
 
       {/* Window Content */}
-      <div className="h-full overflow-hidden">
+      <div className="flex-1 overflow-hidden">
         {renderWindowContent()}
       </div>
 

@@ -106,7 +106,7 @@ const DocumentEditor: React.FC = () => {
       </div>
 
       {/* Editor */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <ReactQuill
           ref={setQuill}
           theme="snow"
@@ -114,8 +114,7 @@ const DocumentEditor: React.FC = () => {
           onChange={handleContentChange}
           modules={modules}
           formats={formats}
-          style={{ height: '100%' }}
-          className="h-full"
+          className="flex-1"
         />
       </div>
 

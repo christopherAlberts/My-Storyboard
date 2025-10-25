@@ -31,7 +31,7 @@ body {
 }
 
 .ql-container {
-  @apply border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800;
+  @apply border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-1;
 }
 
 .ql-editor {
@@ -40,6 +40,17 @@ body {
 
 .ql-editor.ql-blank::before {
   @apply text-gray-500 dark:text-gray-400;
+}
+
+/* ReactQuill flex container fixes */
+.ql-container.ql-snow {
+  display: flex;
+  flex-direction: column;
+}
+
+.ql-editor {
+  flex: 1;
+  overflow-y: auto;
 }
 
 /* Fabric.js canvas styles */
