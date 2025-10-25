@@ -38,6 +38,9 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
   const windowRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Prevent dragging in fullscreen mode
+    if (window.isFullscreen) return;
+    
     if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.window-header')) {
       // Prevent text selection during drag
       e.preventDefault();
@@ -56,6 +59,9 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
 
   const handleResizeMouseDown = (e: React.MouseEvent, direction: ResizeDirection) => {
     e.stopPropagation();
+    // Prevent resizing in fullscreen mode
+    if (window.isFullscreen) return;
+    
     setIsResizing(true);
     setResizeDirection(direction);
     setResizeStart({
@@ -255,7 +261,9 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
     >
       {/* Window Header */}
       <div 
-        className="window-header flex items-center justify-between p-3 border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-t-lg cursor-move"
+        className={`window-header flex items-center justify-between p-3 border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 cursor-move ${
+          window.isFullscreen ? '' : 'rounded-t-lg'
+        }`}
         onDoubleClick={handleDoubleClick}
         style={{ 
           userSelect: 'none', 
@@ -318,40 +326,44 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
       </div>
 
       {/* Resize Handles - Corners */}
-      <div
-        className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
-        onMouseDown={(e) => handleResizeMouseDown(e, 'se')}
-      />
-      <div
-        className="absolute bottom-0 left-0 w-4 h-4 cursor-sw-resize"
-        onMouseDown={(e) => handleResizeMouseDown(e, 'sw')}
-      />
-      <div
-        className="absolute top-0 right-0 w-4 h-4 cursor-ne-resize"
-        onMouseDown={(e) => handleResizeMouseDown(e, 'ne')}
-      />
-      <div
-        className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize"
-        onMouseDown={(e) => handleResizeMouseDown(e, 'nw')}
-      />
-      
-      {/* Resize Handles - Edges */}
-      <div
-        className="absolute top-0 left-4 right-4 h-4 cursor-n-resize"
-        onMouseDown={(e) => handleResizeMouseDown(e, 'n')}
-      />
-      <div
-        className="absolute bottom-0 left-4 right-4 h-4 cursor-s-resize"
-        onMouseDown={(e) => handleResizeMouseDown(e, 's')}
-      />
-      <div
-        className="absolute left-0 top-4 bottom-4 w-4 cursor-w-resize"
-        onMouseDown={(e) => handleResizeMouseDown(e, 'w')}
-      />
-      <div
-        className="absolute right-0 top-4 bottom-4 w-4 cursor-e-resize"
-        onMouseDown={(e) => handleResizeMouseDown(e, 'e')}
-      />
+      {!window.isFullscreen && (
+        <>
+          <div
+            className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
+            onMouseDown={(e) => handleResizeMouseDown(e, 'se')}
+          />
+          <div
+            className="absolute bottom-0 left-0 w-4 h-4 cursor-sw-resize"
+            onMouseDown={(e) => handleResizeMouseDown(e, 'sw')}
+          />
+          <div
+            className="absolute top-0 right-0 w-4 h-4 cursor-ne-resize"
+            onMouseDown={(e) => handleResizeMouseDown(e, 'ne')}
+          />
+          <div
+            className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize"
+            onMouseDown={(e) => handleResizeMouseDown(e, 'nw')}
+          />
+          
+          {/* Resize Handles - Edges */}
+          <div
+            className="absolute top-0 left-4 right-4 h-4 cursor-n-resize"
+            onMouseDown={(e) => handleResizeMouseDown(e, 'n')}
+          />
+          <div
+            className="absolute bottom-0 left-4 right-4 h-4 cursor-s-resize"
+            onMouseDown={(e) => handleResizeMouseDown(e, 's')}
+          />
+          <div
+            className="absolute left-0 top-4 bottom-4 w-4 cursor-w-resize"
+            onMouseDown={(e) => handleResizeMouseDown(e, 'w')}
+          />
+          <div
+            className="absolute right-0 top-4 bottom-4 w-4 cursor-e-resize"
+            onMouseDown={(e) => handleResizeMouseDown(e, 'e')}
+          />
+        </>
+      )}
     </div>
   );
 };

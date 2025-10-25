@@ -196,20 +196,20 @@ export const useAppStore = create<AppStore>()(
 
       toggleFullscreen: (id) => {
         set((state) => {
-          const window = state.windows.find(w => w.id === id);
-          if (!window) return state;
+          const win = state.windows.find(w => w.id === id);
+          if (!win) return state;
 
-          if (window.isFullscreen) {
+          if (win.isFullscreen) {
             // Restore previous state
-            if (window.previousState) {
+            if (win.previousState) {
               return {
                 windows: state.windows.map(w => 
                   w.id === id 
                     ? { 
                         ...w, 
                         isFullscreen: false, 
-                        position: window.previousState!.position,
-                        size: window.previousState!.size,
+                        position: win.previousState!.position,
+                        size: win.previousState!.size,
                         previousState: undefined
                       } 
                     : w
@@ -218,8 +218,9 @@ export const useAppStore = create<AppStore>()(
             }
           } else {
             // Save current state and fullscreen
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
+            // Use browser window dimensions
+            const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+            const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
             
             return {
               windows: state.windows.map(w => 
