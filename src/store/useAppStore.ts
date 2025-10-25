@@ -114,12 +114,19 @@ export const useAppStore = create<AppStore>()(
 
       // Window management
       openWindow: (type, title) => {
+        // Calculate centered position
+        const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+        const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
+        const centeredX = (viewportWidth - initialWindowState.size.width) / 2;
+        const centeredY = (viewportHeight - initialWindowState.size.height) / 2;
+
         const newWindow: WindowState = {
           ...initialWindowState,
           id: generateWindowId(),
           type,
           title,
           isOpen: true,
+          position: { x: centeredX, y: centeredY },
           zIndex: Math.max(...get().windows.map(w => w.zIndex), 0) + 1,
         };
         
