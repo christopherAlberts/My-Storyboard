@@ -10,6 +10,28 @@ export interface Character {
   personality: string;
   background: string;
   relationships: string; // JSON string of relationship IDs
+  
+  // Additional character information
+  notes: string; // General notes about the character
+  commonPhrases: string[]; // Array of common phrases/sayings
+  characterArc: string; // Character development arc description
+  motivation: string; // What drives the character
+  fears: string; // Character's fears and weaknesses
+  goals: string; // Character's goals and objectives
+  skills: string[]; // Array of skills/abilities
+  occupation: string; // Character's job/profession
+  socialStatus: string; // Social standing/class
+  
+  // Chapter-specific information
+  chapterNotes: string; // Notes about what happens to character in chapters
+  chapterEvents: string; // Specific events involving this character
+  
+  // Relationships (enhanced)
+  familyRelations: string; // Family relationships
+  romanticRelations: string; // Romantic relationships
+  friendships: string; // Friendship relationships
+  enemies: string; // Enemy relationships
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,6 +44,23 @@ export interface Location {
   atmosphere: string;
   significance: string;
   coordinates?: { x: number; y: number }; // For storyboard positioning
+  
+  // Additional location information
+  notes: string; // General notes about the location
+  climate: string; // Weather/climate conditions
+  population: string; // Population density/type
+  landmarks: string[]; // Array of notable landmarks
+  history: string; // Historical significance
+  culture: string; // Cultural aspects
+  economy: string; // Economic characteristics
+  politics: string; // Political situation
+  dangers: string; // Potential dangers or hazards
+  resources: string; // Available resources
+  
+  // Relationships
+  connectedLocations: number[]; // Array of connected location IDs
+  frequentCharacters: number[]; // Array of character IDs who frequent this location
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,6 +76,15 @@ export interface PlotPoint {
   locationIds: number[]; // Array of location IDs involved
   order: number; // Order within chapter
   coordinates?: { x: number; y: number }; // For storyboard positioning
+  
+  // Additional plot point information
+  notes: string; // Additional notes about this plot point
+  consequences: string; // What happens as a result of this plot point
+  prerequisites: string; // What needs to happen before this plot point
+  emotionalImpact: string; // Emotional impact on characters/readers
+  foreshadowing: string; // How this foreshadows future events
+  themes: string[]; // Array of themes this plot point explores
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,6 +98,18 @@ export interface Chapter {
   endDate?: Date;
   status: 'draft' | 'in_progress' | 'completed' | 'archived';
   plotPointIds: number[]; // Array of plot point IDs in this chapter
+  
+  // Additional chapter information
+  notes: string; // General notes about the chapter
+  wordCount: number; // Target or actual word count
+  povCharacter: number; // ID of the point-of-view character
+  mainLocation: number; // ID of the primary location
+  themes: string[]; // Array of themes explored in this chapter
+  mood: string; // Overall mood/tone of the chapter
+  pacing: 'slow' | 'medium' | 'fast'; // Pacing of the chapter
+  conflict: string; // Main conflict in this chapter
+  resolution: string; // How conflicts are resolved
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -105,6 +165,36 @@ export class StoryboardDatabase extends Dexie {
       chapters: '++id, title, order, status, createdAt, updatedAt',
       storyboardElements: '++id, type, elementId, chapterId, x, y, createdAt, updatedAt',
       documents: '++id, title, type, chapterId, createdAt, updatedAt'
+    });
+
+    // Version 2 with enhanced fields
+    this.version(2).stores({
+      characters: '++id, name, role, occupation, socialStatus, createdAt, updatedAt',
+      locations: '++id, name, type, climate, population, createdAt, updatedAt',
+      plotPoints: '++id, title, type, importance, chapterId, order, createdAt, updatedAt',
+      chapters: '++id, title, order, status, wordCount, povCharacter, mainLocation, createdAt, updatedAt',
+      storyboardElements: '++id, type, elementId, chapterId, x, y, createdAt, updatedAt',
+      documents: '++id, title, type, chapterId, createdAt, updatedAt'
+    }).upgrade(trans => {
+      // Migration from version 1 to 2
+      return trans.characters.toCollection().modify(character => {
+        // Add default values for new fields
+        character.notes = character.notes || '';
+        character.commonPhrases = character.commonPhrases || [];
+        character.characterArc = character.characterArc || '';
+        character.motivation = character.motivation || '';
+        character.fears = character.fears || '';
+        character.goals = character.goals || '';
+        character.skills = character.skills || [];
+        character.occupation = character.occupation || '';
+        character.socialStatus = character.socialStatus || '';
+        character.chapterNotes = character.chapterNotes || '';
+        character.chapterEvents = character.chapterEvents || '';
+        character.familyRelations = character.familyRelations || '';
+        character.romanticRelations = character.romanticRelations || '';
+        character.friendships = character.friendships || '';
+        character.enemies = character.enemies || '';
+      });
     });
 
     // Add hooks for automatic timestamps

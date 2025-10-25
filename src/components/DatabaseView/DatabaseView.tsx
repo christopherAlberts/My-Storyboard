@@ -52,6 +52,21 @@ const DatabaseView: React.FC = () => {
             personality: '',
             background: '',
             relationships: '[]',
+            notes: '',
+            commonPhrases: [],
+            characterArc: '',
+            motivation: '',
+            fears: '',
+            goals: '',
+            skills: [],
+            occupation: '',
+            socialStatus: '',
+            chapterNotes: '',
+            chapterEvents: '',
+            familyRelations: '',
+            romanticRelations: '',
+            friendships: '',
+            enemies: '',
           };
           await db.characters.add(newCharacter);
           break;
