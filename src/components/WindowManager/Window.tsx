@@ -38,6 +38,13 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.window-header')) {
+      // Prevent text selection during drag
+      e.preventDefault();
+      document.body.style.userSelect = 'none';
+      (document.body.style as any).webkitUserSelect = 'none';
+      (document.body.style as any).mozUserSelect = 'none';
+      (document.body.style as any).msUserSelect = 'none';
+      
       setIsDragging(true);
       setDragStart({
         x: e.clientX - window.position.x,
@@ -157,6 +164,12 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
         // Hide snap preview
         setSnapPreview({ visible: false });
         setCurrentSnapZone(null);
+        
+        // Restore text selection
+        document.body.style.userSelect = '';
+        (document.body.style as any).webkitUserSelect = '';
+        (document.body.style as any).mozUserSelect = '';
+        (document.body.style as any).msUserSelect = '';
       }
       
       setIsDragging(false);
@@ -174,6 +187,18 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging, isResizing, resizeDirection, dragStart, resizeStart, window.id, window.size.width, window.size.height, window.position.x, window.position.y, window.isSnapped, updateWindowPosition, updateWindowSize, snapConfig, setSnapPreview, snapWindowToZone, unsnapWindow, currentSnapZone]);
+
+  // Cleanup effect to restore text selection if component unmounts during drag
+  useEffect(() => {
+    return () => {
+      if (isDragging) {
+        document.body.style.userSelect = '';
+        (document.body.style as any).webkitUserSelect = '';
+        (document.body.style as any).mozUserSelect = '';
+        (document.body.style as any).msUserSelect = '';
+      }
+    };
+  }, [isDragging]);
 
   const renderWindowContent = () => {
     switch (window.type) {
@@ -229,6 +254,12 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
       <div 
         className="window-header flex items-center justify-between p-3 border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-t-lg cursor-move"
         onDoubleClick={handleDoubleClick}
+        style={{ 
+          userSelect: 'none', 
+          WebkitUserSelect: 'none', 
+          MozUserSelect: 'none', 
+          msUserSelect: 'none' 
+        } as React.CSSProperties}
       >
         <div className="flex items-center space-x-2">
           <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
