@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { AppState, WindowState, StoryboardCanvas, DocumentState, DatabaseViewState } from '../types';
+import { db, Document } from '../database/schema';
 
 interface AppStore extends AppState {
   // Window management
@@ -28,6 +29,8 @@ interface AppStore extends AppState {
   // Document state
   documentState: DocumentState;
   updateDocumentState: (updates: Partial<DocumentState>) => void;
+  loadDocument: (id: number) => Promise<void>;
+  createNewDocument: () => void;
   
   // Database view state
   databaseViewState: DatabaseViewState;
@@ -199,6 +202,37 @@ export const useAppStore = create<AppStore>()(
       updateDocumentState: (updates) => {
         set((state) => ({
           documentState: { ...state.documentState, ...updates },
+        }));
+      },
+
+      loadDocument: async (id) => {
+        try {
+          const document = await db.documents.get(id);
+          if (document) {
+            set((state) => ({
+              documentState: {
+                id: document.id,
+                content: document.content,
+                title: document.title,
+                isDirty: false,
+                lastSaved: document.updatedAt,
+              },
+            }));
+          }
+        } catch (error) {
+          console.error('Error loading document:', error);
+        }
+      },
+
+      createNewDocument: () => {
+        set((state) => ({
+          documentState: {
+            id: undefined,
+            content: '',
+            title: 'Untitled Document',
+            isDirty: false,
+            lastSaved: null,
+          },
         }));
       },
 

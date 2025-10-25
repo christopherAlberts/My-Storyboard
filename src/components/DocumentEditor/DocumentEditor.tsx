@@ -3,42 +3,50 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { useAppStore } from '../../store/useAppStore';
 import { db, Document } from '../../database/schema';
+import DocumentList from './DocumentList';
+import { FileText, FolderOpen, Save, Upload } from 'lucide-react';
 
 const DocumentEditor: React.FC = () => {
-  const { documentState, updateDocumentState } = useAppStore();
+  const { documentState, updateDocumentState, loadDocument, createNewDocument } = useAppStore();
   const [quill, setQuill] = useState<ReactQuill | null>(null);
+  const [showDocumentList, setShowDocumentList] = useState(false);
 
   useEffect(() => {
-    // Load document content when component mounts
-    loadDocument();
+    // Initialize with a new document if none exists
+    if (!documentState.id) {
+      createNewDocument();
+    }
   }, []);
 
-  const loadDocument = async () => {
-    try {
-      const documents = await db.documents.toArray();
-      if (documents.length > 0) {
-        const latestDoc = documents[documents.length - 1];
-        updateDocumentState({
-          content: latestDoc.content,
-          title: latestDoc.title,
-          isDirty: false,
-          lastSaved: latestDoc.updatedAt,
-        });
-      }
-    } catch (error) {
-      console.error('Error loading document:', error);
-    }
+  const handleDocumentSelect = async (document: Document) => {
+    await loadDocument(document.id!);
+    setShowDocumentList(false);
+  };
+
+  const handleNewDocument = () => {
+    createNewDocument();
+    setShowDocumentList(false);
   };
 
   const saveDocument = async () => {
     try {
-      const doc: Omit<Document, 'id' | 'createdAt' | 'updatedAt'> = {
-        title: documentState.title,
-        content: documentState.content,
-        type: 'story',
-      };
-
-      await db.documents.add(doc);
+      if (documentState.id) {
+        // Update existing document
+        await db.documents.update(documentState.id, {
+          title: documentState.title,
+          content: documentState.content,
+        });
+      } else {
+        // Create new document
+        const doc: Omit<Document, 'id' | 'createdAt' | 'updatedAt'> = {
+          title: documentState.title,
+          content: documentState.content,
+          type: 'story',
+        };
+        const id = await db.documents.add(doc);
+        updateDocumentState({ id: id as number });
+      }
+      
       updateDocumentState({
         isDirty: false,
         lastSaved: new Date(),
@@ -85,23 +93,42 @@ const DocumentEditor: React.FC = () => {
     <div className="h-full flex flex-col bg-white dark:bg-gray-800">
       {/* Document Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-        <input
-          type="text"
-          value={documentState.title}
-          onChange={handleTitleChange}
-          className="text-lg font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-white"
-          placeholder="Document Title"
-        />
-        <div className="flex items-center space-x-2">
-          {documentState.isDirty && (
-            <span className="text-sm text-orange-500">Unsaved changes</span>
-          )}
+        <div className="flex items-center space-x-3">
           <button
-            onClick={saveDocument}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            onClick={() => setShowDocumentList(true)}
+            className="flex items-center space-x-2 px-3 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
-            Save
+            <FolderOpen className="w-4 h-4" />
+            <span>Open</span>
           </button>
+          <button
+            onClick={handleNewDocument}
+            className="flex items-center space-x-2 px-3 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            <span>New</span>
+          </button>
+        </div>
+        <div className="flex items-center space-x-3">
+          <input
+            type="text"
+            value={documentState.title}
+            onChange={handleTitleChange}
+            className="text-lg font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-white"
+            placeholder="Document Title"
+          />
+          <div className="flex items-center space-x-2">
+            {documentState.isDirty && (
+              <span className="text-sm text-orange-500">Unsaved changes</span>
+            )}
+            <button
+              onClick={saveDocument}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            >
+              <Save className="w-4 h-4" />
+              <span>Save</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -129,6 +156,19 @@ const DocumentEditor: React.FC = () => {
           Word count: {documentState.content.replace(/<[^>]*>/g, '').split(/\s+/).filter(word => word.length > 0).length}
         </div>
       </div>
+
+      {/* Document List Modal */}
+      {showDocumentList && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl h-3/4">
+            <DocumentList
+              onDocumentSelect={handleDocumentSelect}
+              onNewDocument={handleNewDocument}
+              onClose={() => setShowDocumentList(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

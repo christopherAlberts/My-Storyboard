@@ -28,6 +28,7 @@ export interface StoryboardCanvas {
 }
 
 export interface DocumentState {
+  id?: number;
   content: string;
   title: string;
   isDirty: boolean;
