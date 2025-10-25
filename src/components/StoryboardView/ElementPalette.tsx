@@ -6,7 +6,7 @@ interface ElementPaletteProps {
   characters: Character[];
   locations: Location[];
   plotPoints: PlotPoint[];
-  onAddElement: (type: 'character' | 'location' | 'plot_point' | 'note', elementId?: number, content?: string) => void;
+  onAddElement: (type: 'character' | 'location' | 'plot_point' | 'note', elementId?: number, content?: string, x?: number, y?: number) => void;
 }
 
 const ElementPalette: React.FC<ElementPaletteProps> = ({
@@ -20,10 +20,19 @@ const ElementPalette: React.FC<ElementPaletteProps> = ({
 
   const handleDragStart = (type: 'character' | 'location' | 'plot_point' | 'note', id?: number) => {
     setDraggedItem({ type, id });
+    
+    // Set up drag data for canvas
+    const dragData = { type, elementId: id };
+    const event = new CustomEvent('storyboard-drag-start', { detail: dragData });
+    window.dispatchEvent(event);
   };
 
   const handleDragEnd = () => {
     setDraggedItem(null);
+    
+    // Clear drag data
+    const event = new CustomEvent('storyboard-drag-end');
+    window.dispatchEvent(event);
   };
 
   const renderCharacters = () => (

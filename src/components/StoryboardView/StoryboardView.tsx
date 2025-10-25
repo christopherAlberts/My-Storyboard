@@ -37,13 +37,13 @@ const StoryboardView: React.FC = () => {
     }
   };
 
-  const addElement = async (type: StoryboardElement['type'], elementId?: number, content?: string) => {
+  const addElement = async (type: StoryboardElement['type'], elementId?: number, content?: string, x?: number, y?: number) => {
     try {
       const newElement: Omit<StoryboardElement, 'id' | 'createdAt' | 'updatedAt'> = {
         type,
         elementId,
-        x: Math.random() * 800 + 100,
-        y: Math.random() * 600 + 100,
+        x: x !== undefined ? x : Math.random() * 800 + 100,
+        y: y !== undefined ? y : Math.random() * 600 + 100,
         width: type === 'note' ? 200 : 150,
         height: type === 'note' ? 100 : 80,
         content: content || '',
