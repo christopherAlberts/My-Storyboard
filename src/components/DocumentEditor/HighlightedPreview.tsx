@@ -138,6 +138,19 @@ const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
 
   return (
     <>
+      <style>{`
+        .highlighted-preview-content {
+          color: rgb(17, 24, 39);
+        }
+        .dark .highlighted-preview-content {
+          color: rgb(255, 255, 255);
+        }
+        .highlighted-preview-content p, 
+        .highlighted-preview-content div,
+        .highlighted-preview-content span:not(.character-name-hl) {
+          color: inherit !important;
+        }
+      `}</style>
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Character Recognition Mode
@@ -147,7 +160,7 @@ const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
         </p>
       </div>
       <div 
-        className="flex-1 p-8 overflow-y-auto prose max-w-none dark:prose-invert"
+        className="highlighted-preview-content flex-1 p-8 overflow-y-auto prose max-w-none dark:prose-invert"
         dangerouslySetInnerHTML={{ __html: highlightedContent }}
         style={{ fontSize: '16px', lineHeight: '1.6' }}
       />
