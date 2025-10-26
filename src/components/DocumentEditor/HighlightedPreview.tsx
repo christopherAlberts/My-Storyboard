@@ -173,19 +173,64 @@ const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
           }}
         >
           <div className="font-semibold text-sm mb-1">{tooltipState.character.name}</div>
-          {tooltipFields.showDescription && tooltipState.character.description && (
+          {tooltipFields.description && tooltipState.character.description && (
             <div className="text-xs text-gray-300 line-clamp-3 mb-1">
               Description: {tooltipState.character.description}
             </div>
           )}
-          {tooltipFields.showRole && tooltipState.character.role && (
+          {tooltipFields.role && tooltipState.character.role && (
             <div className="text-xs text-gray-300 mb-1">
               Role: {tooltipState.character.role}
             </div>
           )}
-          {tooltipFields.showOccupation && tooltipState.character.occupation && (
-            <div className="text-xs text-gray-400 mt-1">
-              {tooltipState.character.occupation}
+          {tooltipFields.occupation && tooltipState.character.occupation && (
+            <div className="text-xs text-gray-300 mb-1">
+              Occupation: {tooltipState.character.occupation}
+            </div>
+          )}
+          {tooltipFields.age && tooltipState.character.age && (
+            <div className="text-xs text-gray-300 mb-1">
+              Age: {tooltipState.character.age}
+            </div>
+          )}
+          {tooltipFields.appearance && tooltipState.character.appearance && (
+            <div className="text-xs text-gray-300 line-clamp-2 mb-1">
+              Appearance: {tooltipState.character.appearance}
+            </div>
+          )}
+          {tooltipFields.personality && tooltipState.character.personality && (
+            <div className="text-xs text-gray-300 line-clamp-2 mb-1">
+              Personality: {tooltipState.character.personality}
+            </div>
+          )}
+          {tooltipFields.background && tooltipState.character.background && (
+            <div className="text-xs text-gray-300 line-clamp-2 mb-1">
+              Background: {tooltipState.character.background}
+            </div>
+          )}
+          {tooltipFields.characterArc && tooltipState.character.characterArc && (
+            <div className="text-xs text-gray-300 line-clamp-2 mb-1">
+              Character Arc: {tooltipState.character.characterArc}
+            </div>
+          )}
+          {tooltipFields.motivation && tooltipState.character.motivation && (
+            <div className="text-xs text-gray-300 line-clamp-2 mb-1">
+              Motivation: {tooltipState.character.motivation}
+            </div>
+          )}
+          {tooltipFields.goals && tooltipState.character.goals && (
+            <div className="text-xs text-gray-300 line-clamp-2 mb-1">
+              Goals: {tooltipState.character.goals}
+            </div>
+          )}
+          {tooltipFields.fears && tooltipState.character.fears && (
+            <div className="text-xs text-gray-300 line-clamp-2 mb-1">
+              Fears: {tooltipState.character.fears}
+            </div>
+          )}
+          {tooltipFields.notes && tooltipState.character.notes && (
+            <div className="text-xs text-gray-400 line-clamp-2 mt-1">
+              Notes: {tooltipState.character.notes}
             </div>
           )}
         </div>

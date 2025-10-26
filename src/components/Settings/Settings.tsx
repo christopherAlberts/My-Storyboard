@@ -170,12 +170,20 @@ const Settings: React.FC = () => {
             </p>
             <div className="space-y-3">
               {[
-                { key: 'showDescription', label: 'Description', description: 'Show character description' },
-                { key: 'showRole', label: 'Role', description: 'Show character role' },
-                { key: 'showOccupation', label: 'Occupation', description: 'Show character occupation' },
+                { key: 'description', label: 'Description', description: 'Character description' },
+                { key: 'role', label: 'Role', description: 'Protagonist, antagonist, etc.' },
+                { key: 'occupation', label: 'Occupation', description: 'Character\'s job/profession' },
+                { key: 'age', label: 'Age', description: 'Character age' },
+                { key: 'appearance', label: 'Appearance', description: 'Physical appearance description' },
+                { key: 'personality', label: 'Personality', description: 'Personality traits' },
+                { key: 'background', label: 'Background', description: 'Character background' },
+                { key: 'characterArc', label: 'Character Arc', description: 'Character development arc' },
+                { key: 'motivation', label: 'Motivation', description: 'What drives the character' },
+                { key: 'goals', label: 'Goals', description: 'Character objectives' },
+                { key: 'fears', label: 'Fears', description: 'Character fears and weaknesses' },
+                { key: 'notes', label: 'Notes', description: 'General notes about the character' },
               ].map((field) => {
-                const fieldKey = field.key as keyof typeof tooltipFields;
-                const isEnabled = tooltipFields[fieldKey];
+                const isEnabled = tooltipFields[field.key] || false;
                 
                 return (
                   <div key={field.key} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -188,7 +196,7 @@ const Settings: React.FC = () => {
                       </div>
                     </div>
                     <button
-                      onClick={() => setTooltipFields({ [fieldKey]: !isEnabled })}
+                      onClick={() => setTooltipFields({ [field.key]: !isEnabled })}
                       className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                         isEnabled
                           ? 'bg-blue-600'
