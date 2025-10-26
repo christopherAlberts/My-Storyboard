@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { storageService, Document } from '../../services/storageService';
 import { googleAuth } from '../../services/googleAuth';
-import { googleDriveStorage } from '../../services/googleDriveStorage';
 import GoogleDriveSync from './GoogleDriveSync';
-import { Download, FileText, Database, Calendar, HardDrive, Trash2, FolderOpen, Cloud } from 'lucide-react';
+import { Download, FileText, Database, Calendar, HardDrive, Trash2, FolderOpen, Cloud, ExternalLink } from 'lucide-react';
 
 const ProjectFiles: React.FC = () => {
   const [forceUpdate, setForceUpdate] = useState(0);
@@ -135,9 +134,24 @@ const ProjectFiles: React.FC = () => {
               
               {/* Storage Location Indicator */}
               {isGoogleDriveConnected && (
-                <div className="mb-3 flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-                  <Cloud className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span>Storage: Google Drive</span>
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                    <Cloud className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span>Storage: Google Drive</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const folderId = localStorage.getItem('current_project_folder_id');
+                      if (folderId) {
+                        window.open(`https://drive.google.com/drive/folders/${folderId}`, '_blank');
+                      }
+                    }}
+                    className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    title="Open project folder in Google Drive"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span>Open in Drive</span>
+                  </button>
                 </div>
               )}
               

@@ -131,6 +131,38 @@ class GoogleDriveService {
       });
     }
 
+    // Restore stored token if available
+    const storedToken = this.getStoredToken();
+    if (storedToken && storedToken.access_token) {
+      console.log('🔑 Restoring stored token...');
+      
+      // Check if expires_at exists and is valid
+      const hasValidExpiry = storedToken.expires_at && storedToken.expires_at > 1000000000000; // Must be after 2001
+      
+      if (hasValidExpiry) {
+        console.log('Token expires at:', new Date(storedToken.expires_at));
+        console.log('Current time:', new Date());
+        
+        // Check if token is expired
+        const isExpired = Date.now() >= storedToken.expires_at;
+        if (isExpired) {
+          console.log('⚠️ Token is expired, will need to re-authenticate');
+          this.setStoredToken(null);
+          return; // Don't proceed further without valid token
+        }
+      } else {
+        console.log('⚠️ Token has invalid expiration date, will need to re-authenticate');
+        this.setStoredToken(null);
+        return; // Don't proceed further without valid token
+      }
+      
+      gapi.client.setToken(storedToken);
+      this.isSignedIn = true;
+      console.log('✅ Token restored successfully');
+    } else {
+      console.log('ℹ️ No stored token found');
+    }
+
     // Wait for Google auth library and set up token client if client ID is provided
     if (this.config.clientId) {
       // Wait for window.google to be available
@@ -259,6 +291,17 @@ class GoogleDriveService {
     try {
       const storedToken = this.getStoredToken();
       const gapiToken = gapi.client?.getToken();
+      
+      // Verify stored token is valid
+      if (storedToken) {
+        const hasValidExpiry = storedToken.expires_at && storedToken.expires_at > 1000000000000;
+        const isExpired = hasValidExpiry && Date.now() >= storedToken.expires_at;
+        
+        if (!hasValidExpiry || isExpired) {
+          // Token is invalid or expired
+          return false;
+        }
+      }
       
       // If we have a stored token, set it in gapi client
       if (storedToken && !gapiToken) {
@@ -448,6 +491,252 @@ class GoogleDriveService {
 
     const content = await this.getFile(dataFile.id);
     return JSON.parse(content);
+  }
+
+  // List all project folders (folders containing _data.json files)
+  async listProjectFolders(): Promise<Array<{ id: string; name: string; lastModified?: string }>> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated with Google Drive');
+    }
+
+    try {
+      console.log('🔍 Listing project folders...');
+      
+      // Get all folders
+      const foldersResponse = await gapi.client.drive.files.list({
+        q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
+        fields: 'files(id, name, modifiedTime)',
+        orderBy: 'modifiedTime desc',
+      });
+
+      const folders = foldersResponse.result.files || [];
+      console.log(`📁 Found ${folders.length} folders`);
+      
+      // For each folder, check if it contains a _data.json file
+      const projectFolders = [];
+      for (const folder of folders) {
+        try {
+          const files = await this.listFiles(folder.id);
+          const hasDataFile = files.some(f => f.name.endsWith('_data.json'));
+          
+          if (hasDataFile) {
+            projectFolders.push({
+              id: folder.id,
+              name: folder.name,
+              lastModified: folder.modifiedTime,
+            });
+            console.log(`✅ Found project: ${folder.name}`);
+          }
+        } catch (error) {
+          // Skip folders we can't access
+          console.warn(`⚠️ Could not access folder ${folder.name}:`, error);
+        }
+      }
+
+      console.log(`✅ Found ${projectFolders.length} project folders`);
+      return projectFolders;
+    } catch (error) {
+      console.error('❌ Error listing project folders:', error);
+      console.error('Error details:', error);
+      throw error;
+    }
+  }
+
+  // Load project data from a specific folder
+  async loadProjectFromFolder(folderId: string): Promise<any> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated with Google Drive');
+    }
+
+    const files = await this.listFiles(folderId);
+    const dataFile = files.find((f) => f.name.endsWith('_data.json'));
+
+    if (!dataFile) {
+      throw new Error('Project data file not found in folder');
+    }
+
+    const content = await this.getFile(dataFile.id);
+    return JSON.parse(content);
+  }
+
+  // Save project data to a specific folder
+  async saveProjectToFolder(folderId: string, projectData: any): Promise<void> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated with Google Drive');
+    }
+
+    const files = await this.listFiles(folderId);
+    const existingFile = files.find((f) => f.name.endsWith('_data.json'));
+
+    const fileName = existingFile ? existingFile.name : `${projectData.projectName || 'project'}_data.json`;
+    
+    // Save project metadata without documents (documents are stored separately)
+    const projectMetadata = {
+      ...projectData,
+      documents: [] // Exclude documents from metadata, they're stored as separate files
+    };
+    const content = JSON.stringify(projectMetadata, null, 2);
+
+    if (existingFile) {
+      await this.updateFile(existingFile.id, content);
+    } else {
+      await this.uploadFile(folderId, fileName, content);
+    }
+  }
+
+  // Save a document as a separate file in the project folder
+  async saveDocumentToFolder(folderId: string, document: any): Promise<string> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated with Google Drive');
+    }
+
+    if (!document.id) {
+      throw new Error('Document must have an ID to save');
+    }
+
+    // Create a user-friendly filename: sanitize the title only
+    const sanitizedTitle = (document.title || 'Untitled')
+      .replace(/[^a-z0-9\s-]/gi, '') // Remove special characters
+      .replace(/\s+/g, '_') // Replace spaces with underscores
+      .substring(0, 50); // Limit length
+    const fileName = `${sanitizedTitle}.json`;
+    const content = JSON.stringify(document, null, 2);
+
+    console.log(`  📝 Preparing to save document: ${fileName} (title: ${document.title}, ID: ${document.id})`);
+
+    try {
+      // Get all files in the folder
+      const files = await this.listFiles(folderId);
+      
+      // Find existing document files (any .json file that's not the metadata file)
+      const documentFiles = files.filter((f) => f.name.endsWith('.json') && !f.name.endsWith('_data.json'));
+      
+      // Try to find the file by checking the document ID stored inside the file
+      let existingFile = null;
+      for (const file of documentFiles) {
+        try {
+          const fileContent = await this.getFile(file.id);
+          const fileDoc = JSON.parse(fileContent);
+          if (fileDoc.id === document.id) {
+            existingFile = file;
+            break;
+          }
+        } catch (error) {
+          // Skip files that can't be parsed
+          continue;
+        }
+      }
+
+      if (existingFile) {
+        // Update existing file
+        console.log(`  ✏️ Updating existing document file: ${existingFile.name} (Drive file ID: ${existingFile.id})`);
+        await this.updateFile(existingFile.id, content);
+        
+        // If the name changed, rename the file
+        if (existingFile.name !== fileName) {
+          console.log(`  🔄 Renaming file from ${existingFile.name} to ${fileName}`);
+          // Use Drive API to update metadata
+          await gapi.client.drive.files.update({
+            fileId: existingFile.id,
+            resource: { name: fileName }
+          });
+        }
+        
+        return existingFile.id;
+      } else {
+        // Check if filename already exists
+        const fileWithSameName = files.find((f) => f.name === fileName);
+        if (fileWithSameName) {
+          // If there's a collision, add a number suffix
+          let counter = 1;
+          let newFileName = fileName;
+          while (files.find((f) => f.name === newFileName)) {
+            const nameWithoutExt = sanitizedTitle;
+            newFileName = `${nameWithoutExt}_${counter}.json`;
+            counter++;
+          }
+          console.log(`  ⚠️ Filename collision, using: ${newFileName}`);
+          const fileId = await this.uploadFile(folderId, newFileName, content);
+          console.log(`  ✅ Created document file with Drive ID: ${fileId}`);
+          return fileId;
+        } else {
+          console.log(`  ➕ Creating new document file: ${fileName}`);
+          const fileId = await this.uploadFile(folderId, fileName, content);
+          console.log(`  ✅ Created document file with Drive ID: ${fileId}`);
+          return fileId;
+        }
+      }
+    } catch (error) {
+      console.error(`  ❌ Error saving document ${fileName}:`, error);
+      throw error;
+    }
+  }
+
+  // Delete a document file from the project folder
+  async deleteDocumentFromFolder(folderId: string, documentId: string): Promise<void> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated with Google Drive');
+    }
+
+    const fileName = `doc_${documentId}.json`;
+    const files = await this.listFiles(folderId);
+    const documentFile = files.find((f) => f.name === fileName);
+
+    if (documentFile) {
+      await gapi.client.drive.files.delete({
+        fileId: documentFile.id,
+      });
+    }
+  }
+
+  // Load all documents from a project folder
+  async loadDocumentsFromFolder(folderId: string): Promise<any[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated with Google Drive');
+    }
+
+    const files = await this.listFiles(folderId);
+    // Documents now have format: {Title}_{ID}.json
+    const documentFiles = files.filter((f) => f.name.endsWith('.json') && !f.name.endsWith('_data.json'));
+
+    const documents = [];
+    for (const file of documentFiles) {
+      try {
+        const content = await this.getFile(file.id);
+        const document = JSON.parse(content);
+        documents.push(document);
+      } catch (error) {
+        console.error(`Error loading document ${file.name}:`, error);
+      }
+    }
+
+    return documents;
+  }
+
+  // Delete an entire project folder
+  async deleteProjectFolder(folderId: string): Promise<void> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated with Google Drive');
+    }
+
+    try {
+      // Delete all files in the folder first
+      const files = await this.listFiles(folderId);
+      for (const file of files) {
+        try {
+          await gapi.client.drive.files.delete({ fileId: file.id });
+        } catch (error) {
+          console.error(`Error deleting file ${file.name}:`, error);
+        }
+      }
+
+      // Delete the folder itself
+      await gapi.client.drive.files.delete({ fileId: folderId });
+      console.log('✅ Project folder deleted');
+    } catch (error) {
+      console.error('Error deleting project folder:', error);
+      throw error;
+    }
   }
 }
 

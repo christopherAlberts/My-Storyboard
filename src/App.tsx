@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { googleAuth } from './services/googleAuth';
-import { googleDriveStorage } from './services/googleDriveStorage';
+import { googleDriveService } from './services/googleDriveService';
+import { storageService } from './services/storageService';
 import Sidebar from './components/Sidebar/Sidebar';
 import WindowManager from './components/WindowManager/WindowManager';
 import SimpleSignIn from './components/Auth/SimpleSignIn';
-import FolderSelection from './components/Setup/FolderSelection';
+import ProjectSelectionModal from './components/Setup/ProjectSelectionModal';
 import { Menu, PanelLeft } from 'lucide-react';
 
 function App() {
   const { sidebarOpen, setSidebarOpen, theme, toggleSidebar } = useAppStore();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [showFolderSelection, setShowFolderSelection] = useState(false);
+  const [showProjectSelection, setShowProjectSelection] = useState(false);
+  const [currentProjectFolderId, setCurrentProjectFolderId] = useState<string | null>(null);
 
   // Check authentication status on mount
   useEffect(() => {
@@ -21,46 +23,131 @@ function App() {
 
   const checkAuthentication = async () => {
     try {
-      const isAuth = googleAuth.isAuthenticated();
+      console.log('🔍 Checking authentication...');
+      
+      // Initialize Google Drive service
+      console.log('🔧 Initializing Google Drive service...');
+      await googleDriveService.initialize();
+      console.log('✅ Google Drive service initialized');
+      
+      // Check both Google Auth AND Google Drive API access
+      const isGoogleAuth = googleAuth.isAuthenticated();
+      const isDriveAuth = googleDriveService.isAuthenticated();
+      console.log('🔐 Google Auth status:', isGoogleAuth);
+      console.log('🔐 Drive Auth status:', isDriveAuth);
+      
+      // User must be authenticated with both
+      const isAuth = isGoogleAuth && isDriveAuth;
       setIsAuthenticated(isAuth);
       
       if (isAuth) {
-        // Check if folder is set up
-        const folderId = googleDriveStorage.getFolderId();
-        if (!folderId) {
-          setShowFolderSelection(true);
+        // Check if project folder is set up
+        const folderId = localStorage.getItem('current_project_folder_id');
+        console.log('📁 Project folder ID:', folderId);
+        
+        if (folderId) {
+          setCurrentProjectFolderId(folderId);
+          // Load project data from Google Drive
+          console.log('📥 Loading project from Drive...');
+          await loadProjectFromDrive(folderId);
+          console.log('✅ Project loaded');
+        } else {
+          console.log('⚠️ No project folder selected, showing project selection');
+          setShowProjectSelection(true);
         }
+      } else {
+        console.log('⚠️ Not fully authenticated, user needs to sign in');
       }
       
+      console.log('✅ Initialization complete');
       setIsInitializing(false);
     } catch (error) {
-      console.error('Error checking authentication:', error);
+      console.error('❌ Error checking authentication:', error);
       setIsAuthenticated(false);
       setIsInitializing(false);
     }
   };
 
-  const handleFolderSelection = async (folderName: string) => {
+  const loadProjectFromDrive = async (folderId: string) => {
     try {
-      const accessToken = localStorage.getItem('google_access_token');
+      console.log('📥 Loading project data from folder:', folderId);
+      const projectData = await googleDriveService.loadProjectFromFolder(folderId);
+      console.log('✅ Project data loaded:', projectData.projectName);
       
-      if (accessToken) {
-        await googleDriveStorage.initialize(accessToken);
-        const folderId = await googleDriveStorage.createFolder(folderName);
-        googleDriveStorage.setFolderId(folderId);
-        console.log('Folder created:', folderId);
-        setShowFolderSelection(false);
-      } else {
-        console.log('No access token available, using placeholder');
-        // Fallback: just mark as setup
-        localStorage.setItem('project_folder_id', 'placeholder');
-        setShowFolderSelection(false);
-      }
+      // Load documents separately from the project folder
+      console.log('📄 Loading documents from folder...');
+      const documents = await googleDriveService.loadDocumentsFromFolder(folderId);
+      console.log('✅ Loaded', documents.length, 'documents');
+      
+      // Merge documents into project data
+      projectData.documents = documents;
+      
+      console.log('💾 Importing data to storage service...');
+      storageService.importData(JSON.stringify(projectData));
+      console.log('✅ Project loaded from Google Drive with', documents.length, 'documents');
     } catch (error) {
-      console.error('Error creating folder:', error);
-      // Fallback: mark as setup anyway
-      localStorage.setItem('project_folder_id', 'placeholder');
-      setShowFolderSelection(false);
+      console.error('❌ Error loading project from Google Drive:', error);
+      console.error('Error details:', error);
+      // If loading fails, show project selection
+      setShowProjectSelection(true);
+    }
+  };
+
+  const handleSelectProject = async (folderId: string, folderName: string) => {
+    try {
+      setCurrentProjectFolderId(folderId);
+      localStorage.setItem('current_project_folder_id', folderId);
+      localStorage.setItem('current_project_name', folderName);
+      
+      // Load project data
+      await loadProjectFromDrive(folderId);
+      
+      setShowProjectSelection(false);
+    } catch (error) {
+      console.error('Error selecting project:', error);
+      alert('Failed to load project. Please try again.');
+    }
+  };
+
+  const handleCreateProject = async (projectName: string) => {
+    try {
+      // Create folder in Google Drive
+      const folderId = await googleDriveService.createProjectFolder(projectName);
+      
+      // Get default project data and save it
+      const defaultData = storageService.getData();
+      defaultData.projectName = projectName;
+      
+      await googleDriveService.saveProjectToFolder(folderId, defaultData);
+      
+      // Set as current project
+      await handleSelectProject(folderId, projectName);
+    } catch (error) {
+      console.error('Error creating project:', error);
+      throw error;
+    }
+  };
+
+  const handleDeleteProject = async (folderId: string, folderName: string) => {
+    try {
+      console.log('🗑️ Deleting project:', folderName);
+      
+      // Delete the project folder from Google Drive
+      await googleDriveService.deleteProjectFolder(folderId);
+      
+      // If this was the current project, clear it
+      const currentFolderId = localStorage.getItem('current_project_folder_id');
+      if (currentFolderId === folderId) {
+        localStorage.removeItem('current_project_folder_id');
+        localStorage.removeItem('current_project_name');
+        setCurrentProjectFolderId(null);
+      }
+      
+      // Reload the page to refresh the project list
+      window.location.reload();
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      alert('Failed to delete project. Please try again.');
     }
   };
 
@@ -86,13 +173,19 @@ function App() {
     return <SimpleSignIn />;
   }
 
+  // Show project selection modal if user is authenticated but hasn't selected a project
+  if (showProjectSelection || !currentProjectFolderId) {
+    return (
+      <ProjectSelectionModal 
+        onSelectProject={handleSelectProject}
+        onCreateProject={handleCreateProject}
+        onDeleteProject={handleDeleteProject}
+      />
+    );
+  }
+
   return (
     <>
-      {/* Folder Selection Modal */}
-      {showFolderSelection && (
-        <FolderSelection onComplete={handleFolderSelection} />
-      )}
-
       <div className={`h-screen w-screen overflow-hidden bg-white dark:bg-gray-900 ${theme === 'dark' ? 'dark' : ''}`}>
       {/* Mobile menu button */}
       <button

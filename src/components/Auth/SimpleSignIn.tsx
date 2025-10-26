@@ -21,7 +21,6 @@ const SimpleSignIn: React.FC = () => {
         window.google.accounts.id.renderButton(buttonDiv, {
           theme: 'outline',
           size: 'large',
-          width: '100%',
           text: 'signin_with',
           shape: 'rectangular',
         });
@@ -46,15 +45,21 @@ const SimpleSignIn: React.FC = () => {
       localStorage.setItem('google_user', JSON.stringify(user));
       localStorage.setItem('google_authenticated', 'true');
       
-      console.log('Signed in user:', user);
+      console.log('✅ Signed in user:', user);
+      
+      // Wait a moment before requesting Drive access
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Now get OAuth token for Drive API
+      console.log('🔐 Requesting Google Drive access...');
       await getDriveAccessToken();
       
-      // Small delay to ensure token is stored
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
+      // Wait a moment to ensure token is stored
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Reload the page
+      console.log('🔄 Reloading page...');
+      window.location.reload();
     } catch (err: any) {
       console.error('Sign-in error:', err);
       setError(err.message || 'Failed to sign in');
@@ -67,20 +72,33 @@ const SimpleSignIn: React.FC = () => {
       try {
         console.log('Initializing Drive OAuth client...');
         
+        let resolved = false;
+        
         // Use OAuth flow to get Drive access token
         const tokenClient = window.google.accounts.oauth2.initTokenClient({
           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
           scope: 'https://www.googleapis.com/auth/drive.file',
           callback: (response: any) => {
             console.log('OAuth callback received:', response);
-            if (response.access_token) {
-              localStorage.setItem('google_access_token', response.access_token);
-              console.log('✅ Drive access token stored successfully');
-              resolve();
-            } else if (response.error) {
-              console.error('❌ OAuth error:', response.error);
-              setError(`Failed to get Drive access: ${response.error}`);
-              resolve();
+            if (!resolved) {
+              if (response.access_token) {
+                // Store the full token response including expires_at
+                const tokenData = {
+                  access_token: response.access_token,
+                  expires_at: Date.now() + (response.expires_in * 1000),
+                  expires_in: response.expires_in
+                };
+                localStorage.setItem('google_drive_token', JSON.stringify(tokenData));
+                console.log('✅ Drive access token stored successfully');
+                console.log('Token expires in:', response.expires_in, 'seconds');
+                resolved = true;
+                resolve();
+              } else if (response.error) {
+                console.error('❌ OAuth error:', response.error);
+                setError(`Failed to get Drive access: ${response.error}`);
+                resolved = true;
+                resolve();
+              }
             }
           },
         });
@@ -90,9 +108,12 @@ const SimpleSignIn: React.FC = () => {
         
         // Timeout after 60 seconds
         setTimeout(() => {
-          console.log('⏱️ OAuth timeout - user may have dismissed popup');
-          setError('Drive access request timed out. Please try signing in again.');
-          resolve();
+          if (!resolved) {
+            console.log('⏱️ OAuth timeout - user may have dismissed popup');
+            setError('Drive access request timed out. Please try clicking the button again.');
+            resolved = true;
+            resolve();
+          }
         }, 60000);
       } catch (error) {
         console.error('Error setting up Drive OAuth:', error);

@@ -23,29 +23,76 @@ const DocumentEditor: React.FC = () => {
 
   const saveDocument = async () => {
     try {
+      console.log('💾 Saving document...', { 
+        hasId: !!documentState.id, 
+        title: documentState.title 
+      });
+      
       if (documentState.id) {
         // Update existing document
+        console.log('📝 Updating existing document:', documentState.id);
         await storageService.updateDocument(documentState.id as any, {
           title: documentState.title,
           content: documentState.content,
         });
       } else {
         // Create new document
+        console.log('➕ Creating new document');
         const doc: Omit<Document, 'id' | 'createdAt' | 'updatedAt'> = {
           title: documentState.title,
           content: documentState.content,
           type: 'story',
         };
         const id = await storageService.addDocument(doc);
+        console.log('✅ Document created with ID:', id);
         updateDocumentState({ id: id as any });
       }
+      
+      // Force immediate save to Google Drive
+      console.log('📤 Force-saving to Google Drive...');
+      await forceSaveToGoogleDrive();
       
       updateDocumentState({
         isDirty: false,
         lastSaved: new Date(),
       });
+      
+      console.log('✅ Document saved successfully');
     } catch (error) {
-      console.error('Error saving document:', error);
+      console.error('❌ Error saving document:', error);
+    }
+  };
+
+  const forceSaveToGoogleDrive = async () => {
+    try {
+      const folderId = localStorage.getItem('current_project_folder_id');
+      const isAuthenticated = localStorage.getItem('google_authenticated') === 'true';
+      
+      if (folderId && isAuthenticated && folderId !== 'placeholder') {
+        const { googleDriveService } = await import('../../services/googleDriveService');
+        await googleDriveService.initialize();
+        
+        const projectData = storageService.getData();
+        
+        // Save project metadata
+        console.log('💾 Saving project metadata...');
+        await googleDriveService.saveProjectToFolder(folderId, projectData);
+        console.log('✅ Project metadata saved');
+        
+        // Save only the current document (not all documents)
+        if (documentState.id) {
+          const currentDoc = projectData.documents.find(d => d.id === documentState.id);
+          if (currentDoc) {
+            console.log('💾 Saving current document...');
+            await googleDriveService.saveDocumentToFolder(folderId, currentDoc);
+            console.log('✅ Current document saved');
+          }
+        }
+        
+        console.log('✅ Force-saved to Google Drive');
+      }
+    } catch (error) {
+      console.error('❌ Force-save failed:', error);
     }
   };
 
