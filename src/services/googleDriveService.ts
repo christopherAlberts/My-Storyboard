@@ -39,6 +39,28 @@ class GoogleDriveService {
   private config: GoogleDriveConfig | null = null;
   private isSignedIn = false;
 
+  // Check if token is stored in localStorage
+  private hasStoredToken(): boolean {
+    return !!this.getStoredToken();
+  }
+
+  private getStoredToken(): any {
+    try {
+      const token = localStorage.getItem('google_drive_token');
+      return token ? JSON.parse(token) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private setStoredToken(token: any): void {
+    if (token) {
+      localStorage.setItem('google_drive_token', JSON.stringify(token));
+    } else {
+      localStorage.removeItem('google_drive_token');
+    }
+  }
+
   private constructor() {
     // Load gapi script
     this.loadGapi();
@@ -52,20 +74,38 @@ class GoogleDriveService {
   }
 
   private loadGapi(): void {
-    const script = document.createElement('script');
-    script.src = 'https://apis.google.com/js/api.js';
-    script.onload = () => this.initializeGapi();
-    document.head.appendChild(script);
+    const apiScript = document.createElement('script');
+    apiScript.src = 'https://apis.google.com/js/api.js';
+    apiScript.onload = () => this.initializeGapi();
+    document.head.appendChild(apiScript);
   }
 
   private initializeGapi(): void {
     gapi.load('client', async () => {
       this.gapiLoaded = true;
+      // Load GSI (Google Sign-In) library
+      const gsiScript = document.createElement('script');
+      gsiScript.src = 'https://accounts.google.com/gsi/client';
+      gsiScript.async = true;
+      gsiScript.defer = true;
+      document.head.appendChild(gsiScript);
     });
   }
 
-  async initialize(config: GoogleDriveConfig): Promise<void> {
-    this.config = config;
+  async initialize(config?: GoogleDriveConfig): Promise<void> {
+    // Get client ID from environment or prompt user to configure
+    const envClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    
+    // Default development client ID for localhost testing
+    // Users should replace this with their own from Google Cloud Console
+    const defaultClientId = '518395988633-0v5mlv2h4p9kr4vl5eqq8ckuh5n7h7h3.apps.googleusercontent.com';
+    
+    this.config = config || {
+      apiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
+      clientId: envClientId || defaultClientId,
+      discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+      scopes: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email',
+    };
 
     if (!this.gapiLoaded) {
       await new Promise((resolve) => {
@@ -78,41 +118,127 @@ class GoogleDriveService {
       });
     }
 
-    await gapi.client.init({
-      apiKey: config.apiKey,
-      discoveryDocs: config.discoveryDocs,
-    });
+    // Only initialize with API key if provided
+    if (this.config.apiKey) {
+      await gapi.client.init({
+        apiKey: this.config.apiKey,
+        discoveryDocs: this.config.discoveryDocs,
+      });
+    } else {
+      // Initialize without API key for OAuth-only flow
+      await gapi.client.init({
+        discoveryDocs: this.config.discoveryDocs,
+      });
+    }
 
-    this.tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: config.clientId,
-      scope: config.scopes,
-      callback: (response: any) => {
-        this.isSignedIn = true;
-        console.log('Successfully signed in to Google Drive');
-      },
+    // Wait for Google auth library and set up token client if client ID is provided
+    if (this.config.clientId) {
+      // Wait for window.google to be available
+      await this.waitForGoogleAuth();
+      
+      if (window.google) {
+        this.tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: this.config.clientId,
+          scope: this.config.scopes,
+          callback: (response: any) => {
+            if (response.access_token) {
+              gapi.client.setToken(response);
+              this.setStoredToken(response);
+              this.isSignedIn = true;
+              console.log('Successfully signed in to Google Drive');
+            }
+          },
+        });
+      }
+    }
+  }
+
+  private waitForGoogleAuth(): Promise<void> {
+    return new Promise((resolve) => {
+      if (window.google && window.google.accounts) {
+        resolve();
+      } else {
+        const checkInterval = setInterval(() => {
+          if (window.google && window.google.accounts) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 100);
+        
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          resolve(); // Continue anyway after 5 seconds
+        }, 5000);
+      }
     });
   }
 
   async signIn(): Promise<void> {
     if (!this.tokenClient) {
-      throw new Error('Google Drive service not initialized');
+      // Try to initialize if not already done
+      if (!this.config) {
+        await this.initialize();
+      }
+      
+      if (!this.tokenClient) {
+        throw new Error('Google Drive OAuth client not initialized. Please configure OAuth credentials.');
+      }
     }
 
     return new Promise((resolve, reject) => {
+      let resolved = false;
+      
+      // Store callback reference
+      const tokenCallback = (response: any) => {
+        console.log('Token callback called:', response);
+        if (!resolved && response && !response.error) {
+          if (response.access_token) {
+            console.log('Setting token in gapi client');
+            gapi.client.setToken(response);
+            this.setStoredToken(response);
+            this.isSignedIn = true;
+            
+            console.log('Successfully signed in to Google Drive');
+            
+            // Store user info placeholder
+            const userInfo = {
+              name: 'Google User',
+              email: 'user@example.com'
+            };
+            localStorage.setItem('google_account_info', JSON.stringify(userInfo));
+          }
+          resolved = true;
+          clearInterval(checkInterval);
+          resolve();
+        } else if (response && response.error && !resolved) {
+          console.error('Token callback error:', response.error);
+          resolved = true;
+          clearInterval(checkInterval);
+          reject(new Error(response.error || 'Sign-in failed'));
+        }
+      };
+      
+      // Override the callback
+      this.tokenClient.callback = tokenCallback;
+
       this.tokenClient.requestAccessToken({ prompt: 'consent' });
       
       // Check sign-in status
       const checkInterval = setInterval(() => {
-        if (this.isSignedIn) {
+        if (this.isSignedIn && !resolved) {
+          resolved = true;
           clearInterval(checkInterval);
           resolve();
         }
       }, 100);
 
       setTimeout(() => {
-        clearInterval(checkInterval);
-        reject(new Error('Sign-in timeout'));
-      }, 10000);
+        if (!resolved) {
+          resolved = true;
+          clearInterval(checkInterval);
+          reject(new Error('Sign-in timeout'));
+        }
+      }, 60000); // Increased timeout for OAuth flow
     });
   }
 
@@ -122,10 +248,28 @@ class GoogleDriveService {
       gapi.client.setToken('');
       this.isSignedIn = false;
     }
+    this.setStoredToken(null);
+    // Clear authentication flag and account info
+    localStorage.removeItem('google_drive_authenticated');
+    localStorage.removeItem('google_account_info');
   }
 
   isAuthenticated(): boolean {
-    return this.isSignedIn && gapi.client.getToken() !== null;
+    // Check if we have a token stored or in gapi client
+    try {
+      const storedToken = this.getStoredToken();
+      const gapiToken = gapi.client?.getToken();
+      
+      // If we have a stored token, set it in gapi client
+      if (storedToken && !gapiToken) {
+        gapi.client.setToken(storedToken);
+        this.isSignedIn = true;
+      }
+      
+      return this.isSignedIn || !!storedToken || !!gapiToken;
+    } catch {
+      return false;
+    }
   }
 
   // Create a new project folder on Google Drive

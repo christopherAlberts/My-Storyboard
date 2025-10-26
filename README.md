@@ -56,6 +56,12 @@ A comprehensive storyboard web application built with React, TypeScript, and mod
 - **Consistent Styling**: All components adapt to the selected theme
 - **Persistent Settings**: Theme preference is saved across sessions
 
+### ☁️ Google Drive Integration
+- **Secure Storage**: All projects stored in your Google Drive
+- **OAuth Authentication**: Sign in with your Google account
+- **Automatic Sync**: Sync your work across devices
+- **Privacy First**: Only you can access your data
+
 ## Technology Stack
 
 - **Frontend**: React 18 with TypeScript
@@ -72,6 +78,8 @@ A comprehensive storyboard web application built with React, TypeScript, and mod
 ### Prerequisites
 - Node.js 16+ 
 - npm or yarn
+- Google account (required)
+- Google Cloud Console access (one-time setup)
 
 ### Installation
 
@@ -86,12 +94,26 @@ cd storyboard-webapp
 npm install
 ```
 
-3. Start the development server:
+3. **Set up Google Drive Authentication** (Required):
+   
+   Your projects are stored securely in Google Drive, so they're never lost even if you clear your browser cache. See [HOW_TO_GET_GOOGLE_CREDENTIALS.md](./HOW_TO_GET_GOOGLE_CREDENTIALS.md) for detailed setup instructions.
+   
+   Quick setup (5-10 minutes):
+   - Get an OAuth Client ID from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+   - Enable Google Drive API
+   - Add your Client ID to the `.env` file:
+   ```env
+   VITE_GOOGLE_CLIENT_ID=your_client_id_here
+   ```
+
+4. Start the development server:
 ```bash
 npm run dev
 ```
 
-4. Open your browser and navigate to `http://localhost:3000`
+5. Sign in with Google when prompted
+
+6. Start creating your story!
 
 ### Available Scripts
 
@@ -165,7 +187,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Export/Import**: Export to various formats (PDF, Word, etc.)
 - **Templates**: Pre-built story templates
 - **Advanced Drawing**: More drawing tools and shapes
-- **Cloud Sync**: Cloud storage integration
+- **Cloud Sync**: ✅ Google Drive integration (implemented)
 - **Mobile Support**: Responsive mobile interface
 - **Plugin System**: Extensible plugin architecture
 

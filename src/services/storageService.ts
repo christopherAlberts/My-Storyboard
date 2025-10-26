@@ -505,7 +505,33 @@ class StorageService {
     };
     this.getData().documents.push(newDocument);
     this.saveData();
+    
+    // Auto-sync to Google Drive if authenticated
+    this.autoSyncToGoogleDrive();
+    
     return newDocument.id!;
+  }
+
+  private async autoSyncToGoogleDrive() {
+    try {
+      const accessToken = localStorage.getItem('google_access_token');
+      const folderId = localStorage.getItem('project_folder_id');
+      
+      if (accessToken && folderId && folderId !== 'placeholder') {
+        const { googleDriveStorage } = await import('./googleDriveStorage');
+        await googleDriveStorage.initialize(accessToken);
+        
+        // Upload project data
+        const projectData = this.getData();
+        const fileName = 'project_data.json';
+        const content = JSON.stringify(projectData, null, 2);
+        
+        await googleDriveStorage.updateFile(fileName, content);
+        console.log('Auto-synced to Google Drive');
+      }
+    } catch (error) {
+      console.error('Auto-sync failed:', error);
+    }
   }
 
   async updateDocument(id: string, updates: Partial<Document>): Promise<void> {
@@ -513,6 +539,7 @@ class StorageService {
     if (doc) {
       Object.assign(doc, updates, { updatedAt: new Date().toISOString() });
       this.saveData();
+      this.autoSyncToGoogleDrive();
     }
   }
 

@@ -1,11 +1,68 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from './store/useAppStore';
+import { googleAuth } from './services/googleAuth';
+import { googleDriveStorage } from './services/googleDriveStorage';
 import Sidebar from './components/Sidebar/Sidebar';
 import WindowManager from './components/WindowManager/WindowManager';
+import SimpleSignIn from './components/Auth/SimpleSignIn';
+import FolderSelection from './components/Setup/FolderSelection';
 import { Menu, PanelLeft } from 'lucide-react';
 
 function App() {
   const { sidebarOpen, setSidebarOpen, theme, toggleSidebar } = useAppStore();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [showFolderSelection, setShowFolderSelection] = useState(false);
+
+  // Check authentication status on mount
+  useEffect(() => {
+    checkAuthentication();
+  }, []);
+
+  const checkAuthentication = async () => {
+    try {
+      const isAuth = googleAuth.isAuthenticated();
+      setIsAuthenticated(isAuth);
+      
+      if (isAuth) {
+        // Check if folder is set up
+        const folderId = googleDriveStorage.getFolderId();
+        if (!folderId) {
+          setShowFolderSelection(true);
+        }
+      }
+      
+      setIsInitializing(false);
+    } catch (error) {
+      console.error('Error checking authentication:', error);
+      setIsAuthenticated(false);
+      setIsInitializing(false);
+    }
+  };
+
+  const handleFolderSelection = async (folderName: string) => {
+    try {
+      const accessToken = localStorage.getItem('google_access_token');
+      
+      if (accessToken) {
+        await googleDriveStorage.initialize(accessToken);
+        const folderId = await googleDriveStorage.createFolder(folderName);
+        googleDriveStorage.setFolderId(folderId);
+        console.log('Folder created:', folderId);
+        setShowFolderSelection(false);
+      } else {
+        console.log('No access token available, using placeholder');
+        // Fallback: just mark as setup
+        localStorage.setItem('project_folder_id', 'placeholder');
+        setShowFolderSelection(false);
+      }
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      // Fallback: mark as setup anyway
+      localStorage.setItem('project_folder_id', 'placeholder');
+      setShowFolderSelection(false);
+    }
+  };
 
   // Apply theme to document
   useEffect(() => {
@@ -13,8 +70,30 @@ function App() {
     document.documentElement.classList.toggle('dark', isDark);
   }, [theme]);
 
+  // Show sign-in screen if not authenticated
+  if (isInitializing) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-white mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <SimpleSignIn />;
+  }
+
   return (
-    <div className={`h-screen w-screen overflow-hidden bg-white dark:bg-gray-900 ${theme === 'dark' ? 'dark' : ''}`}>
+    <>
+      {/* Folder Selection Modal */}
+      {showFolderSelection && (
+        <FolderSelection onComplete={handleFolderSelection} />
+      )}
+
+      <div className={`h-screen w-screen overflow-hidden bg-white dark:bg-gray-900 ${theme === 'dark' ? 'dark' : ''}`}>
       {/* Mobile menu button */}
       <button
         onClick={() => setSidebarOpen(true)}
@@ -62,6 +141,7 @@ function App() {
         </div>
       )}
     </div>
+    </>
   );
 }
 

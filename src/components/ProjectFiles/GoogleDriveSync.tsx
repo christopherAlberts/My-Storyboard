@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { storageService } from '../../services/storageService';
-import { googleDriveService, GoogleDriveConfig } from '../../services/googleDriveService';
+import { googleDriveService } from '../../services/googleDriveService';
 import { Cloud, CloudOff, Upload, Download, Sync, Loader, Check } from 'lucide-react';
 
 interface GoogleDriveSyncProps {
@@ -11,27 +11,28 @@ const GoogleDriveSync: React.FC<GoogleDriveSyncProps> = ({ projectName = 'My Sto
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
-  const [config, setConfig] = useState<GoogleDriveConfig | null>(null);
+  const [needsConfig, setNeedsConfig] = useState(false);
   const [status, setStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
-    loadConfig();
+    initializeGoogleDrive();
     checkConnection();
   }, []);
 
-  const loadConfig = () => {
-    // In production, these should come from environment variables
-    const apiConfig: GoogleDriveConfig = {
-      apiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
-      clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
-      discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-      scopes: 'https://www.googleapis.com/auth/drive.file',
-    };
-
-    if (apiConfig.apiKey && apiConfig.clientId) {
-      setConfig(apiConfig);
-      googleDriveService.initialize(apiConfig);
+  const initializeGoogleDrive = async () => {
+    try {
+      // Try to auto-initialize with environment variables if available
+      await googleDriveService.initialize();
+      
+      // Check if we have the necessary credentials
+      const hasClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+      if (!hasClientId) {
+        setNeedsConfig(true);
+      }
+    } catch (error) {
+      console.error('Error initializing Google Drive:', error);
+      setNeedsConfig(true);
     }
   };
 
@@ -41,21 +42,23 @@ const GoogleDriveSync: React.FC<GoogleDriveSyncProps> = ({ projectName = 'My Sto
   };
 
   const handleSignIn = async () => {
-    if (!config) {
-      alert('Google Drive API not configured. Please set VITE_GOOGLE_API_KEY and VITE_GOOGLE_CLIENT_ID environment variables.');
-      return;
-    }
-
     setIsLoading(true);
+    setStatusMessage('Connecting to Google...');
+    setStatus('syncing');
+    
     try {
+      // Initialize if not already done
+      await googleDriveService.initialize();
+      
       await googleDriveService.signIn();
       setIsConnected(true);
+      checkConnection();
       setStatusMessage('Successfully connected to Google Drive');
       setStatus('success');
       setTimeout(() => setStatus('idle'), 2000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error signing in:', error);
-      setStatusMessage('Failed to sign in to Google Drive');
+      setStatusMessage(error.message || 'Failed to sign in to Google Drive');
       setStatus('error');
       setTimeout(() => setStatus('idle'), 3000);
     } finally {
@@ -64,20 +67,25 @@ const GoogleDriveSync: React.FC<GoogleDriveSyncProps> = ({ projectName = 'My Sto
   };
 
   const handleSignOut = async () => {
+    if (!window.confirm('Signing out will reload the app. Are you sure you want to continue?')) {
+      return;
+    }
+
     setIsLoading(true);
     try {
       await googleDriveService.signOut();
       setIsConnected(false);
       setLastSynced(null);
-      setStatusMessage('Disconnected from Google Drive');
-      setStatus('success');
-      setTimeout(() => setStatus('idle'), 2000);
+      
+      // Reload the app to show sign-in screen
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     } catch (error) {
       console.error('Error signing out:', error);
       setStatusMessage('Failed to sign out');
       setStatus('error');
       setTimeout(() => setStatus('idle'), 3000);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -194,35 +202,39 @@ const GoogleDriveSync: React.FC<GoogleDriveSyncProps> = ({ projectName = 'My Sto
         )}
       </div>
 
-      {!config && (
+      {needsConfig && (
         <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-          <p className="text-sm text-yellow-800 dark:text-yellow-200">
-            Google Drive API not configured. Please set the following environment variables:
+          <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2">
+            To use Google Drive sync, you need to set up OAuth credentials:
           </p>
-          <ul className="mt-2 text-sm text-yellow-700 dark:text-yellow-300 list-disc list-inside">
-            <li><code>VITE_GOOGLE_API_KEY</code></li>
-            <li><code>VITE_GOOGLE_CLIENT_ID</code></li>
-          </ul>
+          <p className="text-xs text-yellow-700 dark:text-yellow-300 mb-3">
+            Create a <code>VITE_GOOGLE_CLIENT_ID</code> in your <code>.env</code> file. See the setup guide for details.
+          </p>
+          <a 
+            href="HOW_TO_GET_GOOGLE_CREDENTIALS.md" 
+            target="_blank"
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            View Setup Guide →
+          </a>
         </div>
       )}
 
-      {config && (
-        <>
-          <div className="space-y-3">
-            {!isConnected ? (
-              <button
-                onClick={handleSignIn}
-                disabled={isLoading}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <Loader className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Cloud className="w-4 h-4" />
-                )}
-                <span>Connect to Google Drive</span>
-              </button>
+      <div className="space-y-3">
+        {!isConnected ? (
+          <button
+              onClick={handleSignIn}
+              disabled={isLoading}
+            className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? (
+              <Loader className="w-4 h-4 animate-spin" />
             ) : (
+              <Cloud className="w-4 h-4" />
+            )}
+            <span>Sign in with Google</span>
+          </button>
+        ) : (
               <>
                 <button
                   onClick={handleSignOut}
@@ -276,12 +288,10 @@ const GoogleDriveSync: React.FC<GoogleDriveSyncProps> = ({ projectName = 'My Sto
             )}
           </div>
 
-          {statusMessage && (
-            <div className={`text-sm ${getStatusColor()}`}>
-              {statusMessage}
-            </div>
-          )}
-        </>
+      {statusMessage && (
+        <div className={`text-sm ${getStatusColor()}`}>
+          {statusMessage}
+        </div>
       )}
     </div>
   );

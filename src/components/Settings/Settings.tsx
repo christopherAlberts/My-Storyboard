@@ -1,9 +1,44 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { Sun, Moon, Monitor, Coffee, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
+import { googleAuth } from '../../services/googleAuth';
+import { Sun, Moon, Monitor, Coffee, Eye, EyeOff, ChevronDown, ChevronUp, LogOut, User, Shield } from 'lucide-react';
 
 const Settings: React.FC = () => {
   const { theme, setTheme, characterRecognitionEnabled, setCharacterRecognitionEnabled, characterNameCapitalization, setCharacterNameCapitalization, tooltipFields, setTooltipFields } = useAppStore();
+  const [googleAccount, setGoogleAccount] = useState<any>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    loadGoogleAccount();
+  }, []);
+
+  const loadGoogleAccount = async () => {
+    try {
+      const isAuth = googleAuth.isAuthenticated();
+      setIsAuthenticated(isAuth);
+      
+      if (isAuth) {
+        const user = googleAuth.getCurrentUser();
+        if (user) {
+          setGoogleAccount(user);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading Google account:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (window.confirm('Are you sure you want to sign out? Your local progress will be saved.')) {
+      try {
+        await googleAuth.signOut();
+        window.location.reload();
+      } catch (error) {
+        console.error('Error signing out:', error);
+        alert('Error signing out. Please try again.');
+      }
+    }
+  };
   const [capDropdownOpen, setCapDropdownOpen] = React.useState(false);
   const [tooltipDropdownOpen, setTooltipDropdownOpen] = React.useState(false);
 
@@ -34,6 +69,58 @@ const Settings: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">
           Settings
         </h1>
+
+        {/* Google Account Section */}
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Account
+          </h2>
+          
+          {isAuthenticated ? (
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <User className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {googleAccount?.name || 'Logged In'}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {googleAccount?.email || ''}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center space-x-2 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+              <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-800">
+                <div className="flex items-center space-x-2 text-xs text-green-700 dark:text-green-300">
+                  <Shield className="w-4 h-4" />
+                  <span>Your data is synced to your Google Drive</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <User className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    Not Signed In
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Sign in with Google to sync your data to the cloud
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Theme Selection */}
         <div className="mb-8">

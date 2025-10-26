@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { storageService, Document } from '../../services/storageService';
+import { googleAuth } from '../../services/googleAuth';
+import { googleDriveStorage } from '../../services/googleDriveStorage';
 import GoogleDriveSync from './GoogleDriveSync';
-import { Download, FileText, Database, Calendar, HardDrive, Trash2, FolderOpen } from 'lucide-react';
+import { Download, FileText, Database, Calendar, HardDrive, Trash2, FolderOpen, Cloud } from 'lucide-react';
 
 const ProjectFiles: React.FC = () => {
   const [forceUpdate, setForceUpdate] = useState(0);
   const { loadDocument, openWindow } = useAppStore();
   const fileInfo = storageService.getFileInfo();
   const data = storageService.getData();
+  
+  // Get storage location from Google Drive
+  const isGoogleDriveConnected = googleAuth.isAuthenticated();
 
   const refresh = () => {
     setForceUpdate(prev => prev + 1);
@@ -127,6 +132,21 @@ const ProjectFiles: React.FC = () => {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 {data.projectName}
               </h3>
+              
+              {/* Storage Location Indicator */}
+              {isGoogleDriveConnected && (
+                <div className="mb-3 flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                  <Cloud className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span>Storage: Google Drive</span>
+                </div>
+              )}
+              
+              {!isGoogleDriveConnected && (
+                <div className="mb-3 flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                  <HardDrive className="w-4 h-4 text-gray-500" />
+                  <span>Storage: Local Browser</span>
+                </div>
+              )}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
                   <div className="text-gray-600 dark:text-gray-400">Characters</div>
