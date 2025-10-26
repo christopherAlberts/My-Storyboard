@@ -114,11 +114,7 @@ const DocumentEditor: React.FC = () => {
           {characterRecognitionEnabled && (
             <button
               onClick={() => setShowHighlightView(!showHighlightView)}
-              className={`flex items-center space-x-2 px-3 py-2 transition-colors ${
-                showHighlightView
-                  ? 'bg-blue-500 text-white hover:bg-blue-600'
-                  : 'text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300'
-              }`}
+              className="flex items-center space-x-2 px-3 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
               title={showHighlightView ? 'Edit document' : 'View with character highlights'}
             >
               <Eye className="w-4 h-4" />
