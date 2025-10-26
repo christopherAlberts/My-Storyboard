@@ -30,6 +30,35 @@
   font-family: inherit !important;
 }
 
+/* ContentEditable heading styles */
+[contenteditable="true"] h1 {
+  font-size: 2em !important;
+  font-weight: 700 !important;
+  margin: 0.67em 0 !important;
+}
+
+[contenteditable="true"] h2 {
+  font-size: 1.5em !important;
+  font-weight: 700 !important;
+  margin: 0.75em 0 !important;
+}
+
+[contenteditable="true"] h3 {
+  font-size: 1.17em !important;
+  font-weight: 700 !important;
+  margin: 0.83em 0 !important;
+}
+
+[contenteditable="true"] ul,
+[contenteditable="true"] ol {
+  margin: 0.5em 0 !important;
+  padding-left: 2em !important;
+}
+
+[contenteditable="true"] p {
+  margin: 0.5em 0 !important;
+}
+
 .ProseMirror ul,
 .ProseMirror ol {
   padding-left: 1.5rem;

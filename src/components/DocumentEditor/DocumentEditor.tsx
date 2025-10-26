@@ -3,10 +3,10 @@ import { useAppStore } from '../../store/useAppStore';
 import { db, Document } from '../../database/schema';
 import DocumentList from './DocumentList';
 import CustomEditor from './CustomEditor';
-import { FileText, FolderOpen, Save, Eye } from 'lucide-react';
+import { FileText, FolderOpen, Save } from 'lucide-react';
 
 const DocumentEditor: React.FC = () => {
-  const { documentState, updateDocumentState, loadDocument, createNewDocument, characterRecognitionEnabled, toggleCharacterRecognition } = useAppStore();
+  const { documentState, updateDocumentState, loadDocument, createNewDocument } = useAppStore();
   const [showDocumentList, setShowDocumentList] = useState(false);
 
   useEffect(() => {
@@ -87,18 +87,6 @@ const DocumentEditor: React.FC = () => {
             <FileText className="w-4 h-4" />
             <span>New</span>
           </button>
-          <button
-            onClick={toggleCharacterRecognition}
-            className={`flex items-center space-x-2 px-3 py-2 transition-colors ${
-              characterRecognitionEnabled 
-                ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' 
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-            title={characterRecognitionEnabled ? 'Disable character highlights' : 'Enable character highlights'}
-          >
-            <Eye className="w-4 h-4" />
-            <span>Character Recognition</span>
-          </button>
         </div>
         <div className="flex items-center space-x-3">
           <input
@@ -108,18 +96,21 @@ const DocumentEditor: React.FC = () => {
             className="text-lg font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-white"
             placeholder="Document Title"
           />
-          <div className="flex items-center space-x-2">
-            {documentState.isDirty && (
-              <span className="text-sm text-orange-500">Unsaved changes</span>
-            )}
-            <button
-              onClick={saveDocument}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-            >
-              <Save className="w-4 h-4" />
-              <span>Save</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              saveDocument();
+            }}
+            className={`flex items-center space-x-2 px-4 py-2 rounded transition-colors ${
+              documentState.isDirty
+                ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                : 'bg-blue-500 hover:bg-blue-600 text-white'
+            }`}
+          >
+            <Save className="w-4 h-4" />
+            <span>{documentState.isDirty ? 'Unsaved' : 'Saved'}</span>
+          </button>
         </div>
       </div>
 
@@ -129,6 +120,8 @@ const DocumentEditor: React.FC = () => {
           <CustomEditor
             content={documentState.content}
             onChange={handleContentChange}
+            showTableOfContents={false}
+            onToggleTableOfContents={undefined}
           />
         )}
       </div>

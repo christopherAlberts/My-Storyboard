@@ -3,19 +3,25 @@ import { useAppStore } from '../../store/useAppStore';
 import { db, Character } from '../../database/schema';
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback';
 import CharacterTooltip from './CharacterTooltip';
+import FormattingToolbar from './FormattingToolbar';
+import TableOfContents from './TableOfContents';
 
 interface CustomEditorProps {
   content: string;
   onChange: (content: string) => void;
+  showTableOfContents?: boolean;
+  onToggleTableOfContents?: () => void;
 }
 
-const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange }) => {
+const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTableOfContents: externalShowTable, onToggleTableOfContents }) => {
   const editorRef = useRef<HTMLDivElement>(null);
-  const { characterRecognitionEnabled, characterNameCapitalization } = useAppStore();
+  const { characterRecognitionEnabled, characterNameCapitalization, toggleCharacterRecognition } = useAppStore();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [tooltipState, setTooltipState] = useState<{ character: Character; position: { x: number; y: number } } | null>(null);
+  const [showTableOfContents, setShowTableOfContents] = useState(false);
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [localShowTableOfContents, setLocalShowTableOfContents] = useState(false);
 
   // Load characters from database and auto-detect changes
   useEffect(() => {
@@ -400,10 +406,82 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange }) => {
     };
   }, []);
 
+  const handleToggleFormat = (command: string, value?: any) => {
+    if (!editorRef.current) return;
+    
+    editorRef.current.focus();
+    
+    // Wait a moment for focus
+    setTimeout(() => {
+      // Execute the command
+      try {
+        if (value !== undefined && value !== null) {
+          const result = document.execCommand(command, false, value);
+          console.log(`Command: ${command}, Value: ${value}, Result: ${result}`);
+        } else {
+          const result = document.execCommand(command, false, null);
+          console.log(`Command: ${command}, Result: ${result}`);
+        }
+        
+        // Trigger content change to save the formatting
+        handleContentChange();
+      } catch (err) {
+        console.error('Error executing command:', err);
+      }
+    }, 10);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Keyboard shortcuts
+    if (e.ctrlKey || e.metaKey) {
+      switch (e.key) {
+        case 'b':
+          e.preventDefault();
+          handleToggleFormat('bold');
+          break;
+        case 'i':
+          e.preventDefault();
+          handleToggleFormat('italic');
+          break;
+        case '1':
+          e.preventDefault();
+          handleToggleFormat('formatBlock', '<h1>');
+          break;
+        case '2':
+          e.preventDefault();
+          handleToggleFormat('formatBlock', '<h2>');
+          break;
+        case '3':
+          e.preventDefault();
+          handleToggleFormat('formatBlock', '<h3>');
+          break;
+      }
+    }
+  };
+
+  const activeTableOfContents = externalShowTable ?? localShowTableOfContents;
+  
+  // Debug: Log when TOC state changes
+  console.log('Table of Contents State:', { 
+    isOpen: activeTableOfContents, 
+    externalShowTable, 
+    localShowTableOfContents 
+  });
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-800">
+      {/* Formatting Toolbar */}
+      <FormattingToolbar 
+        editorRef={editorRef} 
+        onToggleFormat={handleToggleFormat}
+        characterRecognitionEnabled={characterRecognitionEnabled}
+        onToggleCharacterRecognition={toggleCharacterRecognition}
+        onToggleTableOfContents={onToggleTableOfContents || (() => setLocalShowTableOfContents(prev => !prev))}
+        showTableOfContents={activeTableOfContents}
+      />
+
       {/* Editor container */}
-      <div className="flex-1 relative overflow-auto">
+      <div className="flex-1 relative overflow-auto flex">
         {tooltipState && (
           <CharacterTooltip
             character={tooltipState.character}
@@ -417,11 +495,22 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange }) => {
           contentEditable
           onInput={handleInput}
           onBlur={handleContentChange}
-          className="w-full h-full p-4 outline-none text-gray-900 dark:text-white bg-transparent"
+          onKeyDown={handleKeyDown}
+          className="flex-1 p-4 outline-none text-gray-900 dark:text-white bg-transparent"
           style={{
             whiteSpace: 'pre-wrap',
             wordWrap: 'break-word'
           }}
+        />
+        
+        {/* Table of Contents */}
+        <TableOfContents 
+          editorRef={editorRef} 
+          isOpen={activeTableOfContents} 
+          onClose={() => {
+            setLocalShowTableOfContents(false);
+            onToggleTableOfContents?.();
+          }} 
         />
       </div>
     </div>
