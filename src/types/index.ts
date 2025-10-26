@@ -41,7 +41,7 @@ export interface WindowSnapConfig {
 export interface AppState {
   windows: WindowState[];
   activeWindowId: string | null;
-  theme: 'light' | 'dark' | 'system';
+  theme: 'light' | 'dark';
   sidebarOpen: boolean;
 }
 

@@ -34,7 +34,7 @@ interface AppStore extends AppState {
   
   // Theme
   toggleTheme: () => void;
-  setTheme: (theme: 'light' | 'dark' | 'system') => void;
+  setTheme: (theme: 'light' | 'dark') => void;
   
   // Sidebar
   toggleSidebar: () => void;
@@ -385,12 +385,12 @@ export const useAppStore = create<AppStore>()(
       // Theme
       toggleTheme: () => {
         set((state) => ({
-          theme: state.theme === 'light' ? 'dark' : state.theme === 'dark' ? 'system' : 'light',
+          theme: state.theme === 'light' ? 'dark' : 'light',
         }));
       },
 
       setTheme: (theme) => {
-        set({ theme });
+        set((state) => ({ theme }));
       },
 
       // Sidebar

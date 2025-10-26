@@ -126,13 +126,38 @@ const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
       }
     };
 
-    document.addEventListener('mouseenter', handleMouseEnter, true);
-    document.addEventListener('mouseleave', handleMouseLeave, true);
-    document.addEventListener('click', handleClick, true);
+    // Use capture phase but check if it's actually a character highlight before preventing
+    const capturePhaseHandler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const characterSpan = target.closest('.character-name-hl');
+      if (characterSpan) {
+        handleMouseEnter(e);
+      }
+    };
+
+    const capturePhaseLeave = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const characterSpan = target.closest('.character-name-hl');
+      if (characterSpan) {
+        handleMouseLeave();
+      }
+    };
+
+    const capturePhaseClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const characterSpan = target.closest('.character-name-hl');
+      if (characterSpan) {
+        handleClick(e);
+      }
+    };
+
+    document.addEventListener('mouseenter', capturePhaseHandler, true);
+    document.addEventListener('mouseleave', capturePhaseLeave, true);
+    document.addEventListener('click', capturePhaseClick, true);
     return () => {
-      document.removeEventListener('mouseenter', handleMouseEnter, true);
-      document.removeEventListener('mouseleave', handleMouseLeave, true);
-      document.removeEventListener('click', handleClick, true);
+      document.removeEventListener('mouseenter', capturePhaseHandler, true);
+      document.removeEventListener('mouseleave', capturePhaseLeave, true);
+      document.removeEventListener('click', capturePhaseClick, true);
     };
   }, []);
 

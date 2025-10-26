@@ -30,7 +30,7 @@ const CharacterTooltip: React.FC<CharacterTooltipProps> = ({ character, position
     return null;
   }
 
-  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const isDark = theme === 'dark';
 
   return (
     <div

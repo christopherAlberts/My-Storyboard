@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { FileText, Layout, Database, Map, Settings, X, Sun, Moon, Monitor } from 'lucide-react';
+import { FileText, Layout, Database, Map, Settings, X, Sun, Moon } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
   const {
@@ -117,13 +117,11 @@ const Sidebar: React.FC = () => {
           >
             {theme === 'light' ? (
               <Moon className="w-5 h-5 text-gray-500" />
-            ) : theme === 'dark' ? (
-              <Sun className="w-5 h-5 text-gray-500" />
             ) : (
-              <Monitor className="w-5 h-5 text-gray-500" />
+              <Sun className="w-5 h-5 text-gray-500" />
             )}
             <span className="text-sm font-medium text-gray-900 dark:text-white">
-              {theme === 'light' ? 'Dark Mode' : theme === 'dark' ? 'Light Mode' : 'System Theme'}
+              {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
             </span>
           </button>
         </div>

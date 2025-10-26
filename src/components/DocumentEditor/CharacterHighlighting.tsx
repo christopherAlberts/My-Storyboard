@@ -265,10 +265,34 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
       }
     };
 
-    // Attach global event listeners using event delegation
-    editor.addEventListener('mouseenter', handleMouseEnter, true);
-    editor.addEventListener('mouseleave', handleMouseLeave, true);
-    editor.addEventListener('click', handleClick, true);
+    // Attach event listeners using event delegation with proper checks
+    const capturePhaseHandler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const characterSpan = target.closest('.character-name-hl');
+      if (characterSpan) {
+        handleMouseEnter(e);
+      }
+    };
+
+    const capturePhaseLeave = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const characterSpan = target.closest('.character-name-hl');
+      if (characterSpan) {
+        handleMouseLeave();
+      }
+    };
+
+    const capturePhaseClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const characterSpan = target.closest('.character-name-hl');
+      if (characterSpan) {
+        handleClick(e);
+      }
+    };
+
+    editor.addEventListener('mouseenter', capturePhaseHandler, true);
+    editor.addEventListener('mouseleave', capturePhaseLeave, true);
+    editor.addEventListener('click', capturePhaseClick, true);
 
     const handleTextChange = () => {
       isTypingRef.current = true;
@@ -316,9 +340,9 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
       editor.removeEventListener('blur', handleEditorBlur);
       
       // Remove event listeners
-      editor.removeEventListener('mouseenter', handleMouseEnter, true);
-      editor.removeEventListener('mouseleave', handleMouseLeave, true);
-      editor.removeEventListener('click', handleClick, true);
+      editor.removeEventListener('mouseenter', capturePhaseHandler, true);
+      editor.removeEventListener('mouseleave', capturePhaseLeave, true);
+      editor.removeEventListener('click', capturePhaseClick, true);
       
       removeHighlighting();
       isTypingRef.current = false;
