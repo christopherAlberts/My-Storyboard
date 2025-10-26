@@ -10,6 +10,7 @@ export interface Character {
   personality: string;
   background: string;
   relationships: string; // JSON string of relationship IDs
+  color?: string; // Character recognition color
   
   // Additional character information
   notes: string; // General notes about the character
@@ -286,10 +287,71 @@ export class StoryboardDatabase extends Dexie {
       ]);
     });
 
-    // Add hooks for automatic timestamps
+    // Version 5 with character recognition
+    this.version(5).stores({
+      characters: '++id, name, role, occupation, socialStatus, color, createdAt, updatedAt',
+      locations: '++id, name, type, climate, population, createdAt, updatedAt',
+      plotPoints: '++id, title, type, importance, chapterId, order, createdAt, updatedAt',
+      chapters: '++id, title, order, status, wordCount, povCharacter, mainLocation, createdAt, updatedAt',
+      storyboardElements: '++id, type, elementId, chapterId, x, y, createdAt, updatedAt',
+      documents: '++id, title, type, chapterId, createdAt, updatedAt',
+      mapElements: '++id, type, name, x, y, characterId, locationId, createdAt, updatedAt',
+      maps: '++id, title, width, height, createdAt, updatedAt'
+    }).upgrade(trans => {
+      // Generate random colors for existing characters (avoid black and very dark colors)
+      function generateRandomHexColor(): string {
+        // Generate a random color that's not too dark
+        const minBrightness = 100; // Minimum RGB value
+        const r = Math.floor(Math.random() * (256 - minBrightness)) + minBrightness;
+        const g = Math.floor(Math.random() * (256 - minBrightness)) + minBrightness;
+        const b = Math.floor(Math.random() * (256 - minBrightness)) + minBrightness;
+        
+        // Ensure at least one component is bright
+        const rgb = [r, g, b];
+        const maxComponent = Math.max(...rgb);
+        if (maxComponent < 180) {
+          const idx = Math.floor(Math.random() * 3);
+          rgb[idx] = 200 + Math.floor(Math.random() * 56);
+        }
+        
+        return `#${rgb.map(x => x.toString(16).padStart(2, '0')).join('')}`;
+      }
+
+      return trans.characters.toCollection().modify(character => {
+        if (!character.color || character.color === '' || character.color === '#000000' || character.color === 'black') {
+          character.color = generateRandomHexColor();
+        }
+      });
+    });
+
+    // Add hooks for automatic timestamps and character recognition
     this.characters.hook('creating', function (primKey, obj, trans) {
       obj.createdAt = new Date();
       obj.updatedAt = new Date();
+      
+      // Generate random color for character recognition if not provided (avoid black and dark colors)
+      function generateRandomHexColor(): string {
+        // Generate a random color that's not too dark
+        // We'll generate colors in the bright to medium range
+        const minBrightness = 100; // Minimum RGB value
+        const r = Math.floor(Math.random() * (256 - minBrightness)) + minBrightness;
+        const g = Math.floor(Math.random() * (256 - minBrightness)) + minBrightness;
+        const b = Math.floor(Math.random() * (256 - minBrightness)) + minBrightness;
+        
+        // Ensure at least one component is bright
+        const rgb = [r, g, b];
+        const maxComponent = Math.max(...rgb);
+        if (maxComponent < 180) {
+          const idx = Math.floor(Math.random() * 3);
+          rgb[idx] = 200 + Math.floor(Math.random() * 56);
+        }
+        
+        return `#${rgb.map(x => x.toString(16).padStart(2, '0')).join('')}`;
+      }
+      
+      if (!obj.color || obj.color === '' || obj.color === '#000000' || obj.color === 'black' || obj.color === undefined) {
+        obj.color = generateRandomHexColor();
+      }
     });
 
     this.characters.hook('updating', function (modifications, primKey, obj, trans) {

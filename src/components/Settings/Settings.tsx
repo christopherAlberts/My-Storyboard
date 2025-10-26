@@ -1,9 +1,9 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { Sun, Moon, Monitor, Coffee } from 'lucide-react';
+import { Sun, Moon, Monitor, Coffee, Eye, EyeOff } from 'lucide-react';
 
 const Settings: React.FC = () => {
-  const { theme, setTheme } = useAppStore();
+  const { theme, setTheme, characterRecognitionEnabled, setCharacterRecognitionEnabled } = useAppStore();
 
   const themeOptions = [
     {
@@ -80,6 +80,44 @@ const Settings: React.FC = () => {
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Character Recognition */}
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Character Recognition
+          </h2>
+          <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div className="flex items-center space-x-3">
+              {characterRecognitionEnabled ? (
+                <Eye className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              ) : (
+                <EyeOff className="w-5 h-5 text-gray-400" />
+              )}
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                  Enable Character Recognition
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Highlight character names in documents with their unique colors
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setCharacterRecognitionEnabled(!characterRecognitionEnabled)}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                characterRecognitionEnabled
+                  ? 'bg-blue-600'
+                  : 'bg-gray-200 dark:bg-gray-700'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  characterRecognitionEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
         </div>
 

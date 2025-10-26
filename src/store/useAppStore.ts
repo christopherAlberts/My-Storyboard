@@ -4,6 +4,10 @@ import { AppState, WindowState, StoryboardCanvas, DocumentState, DatabaseViewSta
 import { db, Document } from '../database/schema';
 
 interface AppStore extends AppState {
+  // Settings
+  characterRecognitionEnabled: boolean;
+  setCharacterRecognitionEnabled: (enabled: boolean) => void;
+  
   // Window management
   openWindow: (type: WindowState['type'], title: string) => void;
   closeWindow: (id: string) => void;
@@ -111,6 +115,12 @@ export const useAppStore = create<AppStore>()(
       databaseViewState: initialDatabaseViewState,
       snapConfig: initialSnapConfig,
       snapPreview: initialSnapPreview,
+      characterRecognitionEnabled: true,
+
+      // Settings
+      setCharacterRecognitionEnabled: (enabled) => {
+        set({ characterRecognitionEnabled: enabled });
+      },
 
       // Window management
       openWindow: (type, title) => {

@@ -20,6 +20,35 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
   const [activeTab, setActiveTab] = useState<'basic' | 'details' | 'relationships' | 'chapters' | 'custom'>('basic');
   const [newCustomFieldName, setNewCustomFieldName] = useState('');
   const [newCustomFieldValue, setNewCustomFieldValue] = useState('');
+  const [highlightedCharacterId, setHighlightedCharacterId] = useState<number | null>(null);
+
+  React.useEffect(() => {
+    const handleScrollToCharacter = (event: any) => {
+      const characterId = event.detail.characterId;
+      if (characterId) {
+        setHighlightedCharacterId(characterId);
+        
+        // Scroll to the character element
+        setTimeout(() => {
+          const element = document.querySelector(`[data-character-id="${characterId}"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Add highlight effect
+            (element as HTMLElement).style.backgroundColor = 'rgba(59, 130, 246, 0.3)';
+            setTimeout(() => {
+              (element as HTMLElement).style.backgroundColor = '';
+              setHighlightedCharacterId(null);
+            }, 2000);
+          }
+        }, 100);
+      }
+    };
+
+    window.addEventListener('scroll-to-character', handleScrollToCharacter as EventListener);
+    return () => {
+      window.removeEventListener('scroll-to-character', handleScrollToCharacter as EventListener);
+    };
+  }, []);
 
   const handleEdit = (character: Character) => {
     setEditingId(character.id!);
@@ -112,6 +141,38 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
             className="form-input"
           />
         </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Recognition Color
+        </label>
+        <div className="flex items-center space-x-2">
+          <input
+            type="color"
+            value={editData.color || '#3B82F6'}
+            onChange={(e) => {
+              const newColor = e.target.value;
+              handleChange('color', newColor);
+            }}
+            className="w-16 h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+          />
+          <input
+            type="text"
+            value={editData.color || '#3B82F6'}
+            onChange={(e) => {
+              const newColor = e.target.value;
+              if (/^#[0-9A-Fa-f]{6}$/.test(newColor) || newColor === '') {
+                handleChange('color', newColor);
+              }
+            }}
+            className="flex-1 form-input font-mono"
+            placeholder="#hex color (e.g., #3B82F6)"
+          />
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          Color for character name highlighting in documents
+        </p>
       </div>
 
       <div>
@@ -476,6 +537,7 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
                 {characters.map((character) => (
                   <div
                     key={character.id}
+                    data-character-id={character.id}
                     className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                       editingId === character.id
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'

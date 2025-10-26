@@ -4,6 +4,7 @@ import 'react-quill/dist/quill.snow.css';
 import { useAppStore } from '../../store/useAppStore';
 import { db, Document } from '../../database/schema';
 import DocumentList from './DocumentList';
+import CharacterHighlightWrapper from './CharacterHighlightWrapper';
 import { FileText, FolderOpen, Save, Upload } from 'lucide-react';
 
 const DocumentEditor: React.FC = () => {
@@ -134,14 +135,11 @@ const DocumentEditor: React.FC = () => {
 
       {/* Editor */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <ReactQuill
-          ref={setQuill}
-          theme="snow"
-          value={documentState.content}
+        <CharacterHighlightWrapper
+          content={documentState.content}
           onChange={handleContentChange}
           modules={modules}
           formats={formats}
-          className="flex-1"
         />
       </div>
 
