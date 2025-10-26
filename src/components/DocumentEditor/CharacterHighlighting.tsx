@@ -82,6 +82,9 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
         // Safety check - don't process if editor is not properly initialized
         if (!editor.parentNode) return;
 
+        // Additional safety - check if editor is focused (user is typing)
+        if (document.activeElement === editor) return;
+
         // Get the plain text content
         const plainText = quill.getText();
         if (!plainText || plainText.trim() === '') return;
@@ -91,7 +94,8 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
 
         // Create a working copy to process
         const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = quill.root.innerHTML;
+        const originalHTML = quill.root.innerHTML;
+        tempDiv.innerHTML = originalHTML;
 
         // Process each character
         characters.forEach(character => {
@@ -179,25 +183,34 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
         // Update the editor with the highlighted content
         const selection = quill.getSelection();
         const newHTML = tempDiv.innerHTML;
+        const oldHTML = originalHTML;
         
-        if (newHTML !== editor.innerHTML) {
+        // Only update if content actually changed
+        if (newHTML !== oldHTML) {
           try {
             // Update the content safely
             editor.innerHTML = newHTML;
             
-            // Restore selection if it exists
-            if (selection) {
+            // Restore selection if it exists - but be very careful
+            if (selection && selection.index !== null) {
+              // Use setImmediate or setTimeout to restore after ReactQuill processes
               setTimeout(() => {
                 try {
-                  quill.setSelection(selection.index || 0, selection.length || 0);
+                  const length = selection.length || 0;
+                  quill.setSelection(Math.max(0, selection.index || 0), length);
                 } catch (e) {
                   console.warn('Could not restore selection:', e);
                 }
-              }, 10);
+              }, 50);
             }
           } catch (error) {
             console.error('Error updating editor content:', error);
-            // Don't crash - just log the error
+            // Restore original content on error
+            try {
+              editor.innerHTML = originalHTML;
+            } catch (restoreError) {
+              console.error('Could not restore original content:', restoreError);
+            }
           }
         }
       } catch (err) {
@@ -248,12 +261,27 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
       }
 
       timeoutRef.current = setTimeout(() => {
-        isTypingRef.current = false;
-        applyHighlighting();
-      }, 1500); // Wait 1.5 seconds after user stops typing
+        // Only apply if editor is not focused
+        if (document.activeElement !== editor) {
+          isTypingRef.current = false;
+          applyHighlighting();
+        } else {
+          isTypingRef.current = false;
+        }
+      }, 3000); // Wait 3 seconds after user stops typing
+    };
+
+    const handleEditorBlur = () => {
+      // Apply highlighting when editor loses focus
+      setTimeout(() => {
+        if (!isTypingRef.current) {
+          applyHighlighting();
+        }
+      }, 500);
     };
 
     quill.on('text-change', handleTextChange);
+    editor.addEventListener('blur', handleEditorBlur);
 
     // Initial highlighting
     const initialTimeout = setTimeout(() => {
@@ -266,6 +294,7 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       clearTimeout(initialTimeout);
       quill.off('text-change', handleTextChange);
+      editor.removeEventListener('blur', handleEditorBlur);
       
       // Remove event listeners
       editor.removeEventListener('mouseenter', handleMouseEnter, true);
