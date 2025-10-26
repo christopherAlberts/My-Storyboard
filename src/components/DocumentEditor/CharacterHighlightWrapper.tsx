@@ -84,7 +84,9 @@ const CharacterHighlightWrapper: React.FC<CharacterHighlightWrapperProps> = ({
         formats={formats}
         className="flex-1"
       />
-      <CharacterHighlighting quillRef={quillRef} />
+      {/* Character highlighting temporarily disabled due to ReactQuill DOM conflicts */}
+      {/* TODO: Implement proper highlighting using Quill formats/blots or markdown preview mode */}
+      {/* <CharacterHighlighting quillRef={quillRef} /> */}
       {tooltipState && (
         <div
           className="fixed bg-gray-900 dark:bg-gray-800 text-white p-3 rounded-lg shadow-lg z-50 max-w-xs pointer-events-none"

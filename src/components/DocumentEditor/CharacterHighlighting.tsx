@@ -79,9 +79,12 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
         const editor = quill.root;
         if (!editor || isTypingRef.current) return;
 
+        // Safety check - don't process if editor is not properly initialized
+        if (!editor.parentNode) return;
+
         // Get the plain text content
         const plainText = quill.getText();
-        if (!plainText) return;
+        if (!plainText || plainText.trim() === '') return;
 
         // Remove any existing highlights
         removeHighlighting();
@@ -178,12 +181,23 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
         const newHTML = tempDiv.innerHTML;
         
         if (newHTML !== editor.innerHTML) {
-          // Update the content
-          editor.innerHTML = newHTML;
-          
-          // Restore selection if it exists
-          if (selection) {
-            setTimeout(() => quill.setSelection(selection.index || 0, selection.length || 0), 10);
+          try {
+            // Update the content safely
+            editor.innerHTML = newHTML;
+            
+            // Restore selection if it exists
+            if (selection) {
+              setTimeout(() => {
+                try {
+                  quill.setSelection(selection.index || 0, selection.length || 0);
+                } catch (e) {
+                  console.warn('Could not restore selection:', e);
+                }
+              }, 10);
+            }
+          } catch (error) {
+            console.error('Error updating editor content:', error);
+            // Don't crash - just log the error
           }
         }
       } catch (err) {
