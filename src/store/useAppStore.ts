@@ -7,6 +7,8 @@ interface AppStore extends AppState {
   // Settings
   characterRecognitionEnabled: boolean;
   setCharacterRecognitionEnabled: (enabled: boolean) => void;
+  characterNameCapitalization: 'uppercase' | 'lowercase' | 'leave-as-is';
+  setCharacterNameCapitalization: (mode: 'uppercase' | 'lowercase' | 'leave-as-is') => void;
   
   // Window management
   openWindow: (type: WindowState['type'], title: string) => void;
@@ -116,10 +118,14 @@ export const useAppStore = create<AppStore>()(
       snapConfig: initialSnapConfig,
       snapPreview: initialSnapPreview,
       characterRecognitionEnabled: true,
+      characterNameCapitalization: 'uppercase',
 
       // Settings
       setCharacterRecognitionEnabled: (enabled) => {
         set({ characterRecognitionEnabled: enabled });
+      },
+      setCharacterNameCapitalization: (mode) => {
+        set({ characterNameCapitalization: mode });
       },
 
       // Window management

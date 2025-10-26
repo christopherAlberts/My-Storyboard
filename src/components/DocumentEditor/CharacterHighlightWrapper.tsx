@@ -74,7 +74,7 @@ const CharacterHighlightWrapper: React.FC<CharacterHighlightWrapperProps> = ({
   }, [characters, openWindow]);
 
   return (
-    <div>
+    <div className="flex-1 flex flex-col overflow-hidden">
       <ReactQuill
         ref={quillRef}
         theme="snow"
@@ -82,6 +82,7 @@ const CharacterHighlightWrapper: React.FC<CharacterHighlightWrapperProps> = ({
         onChange={onChange}
         modules={modules}
         formats={formats}
+        className="flex-1"
       />
       <CharacterHighlighting quillRef={quillRef} />
       {tooltipState && (

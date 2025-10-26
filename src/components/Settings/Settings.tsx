@@ -3,7 +3,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { Sun, Moon, Monitor, Coffee, Eye, EyeOff } from 'lucide-react';
 
 const Settings: React.FC = () => {
-  const { theme, setTheme, characterRecognitionEnabled, setCharacterRecognitionEnabled } = useAppStore();
+  const { theme, setTheme, characterRecognitionEnabled, setCharacterRecognitionEnabled, characterNameCapitalization, setCharacterNameCapitalization } = useAppStore();
 
   const themeOptions = [
     {
@@ -120,6 +120,44 @@ const Settings: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Character Name Capitalization */}
+        {characterRecognitionEnabled && (
+          <div className="mb-8">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+              Character Name Capitalization
+            </h3>
+            <div className="space-y-2">
+              {[
+                { value: 'uppercase', label: 'Upper Case', description: 'First letter capitalized' },
+                { value: 'lowercase', label: 'Lower Case', description: 'All lowercase' },
+                { value: 'leave-as-is', label: 'Leave As Is', description: 'Match user\'s typing' }
+              ].map((option) => (
+                <label
+                  key={option.value}
+                  className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  <input
+                    type="radio"
+                    name="capitalization"
+                    value={option.value}
+                    checked={characterNameCapitalization === option.value}
+                    onChange={(e) => setCharacterNameCapitalization(e.target.value as any)}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {option.label}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {option.description}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Buy Me a Coffee */}
         <div className="mb-8">
