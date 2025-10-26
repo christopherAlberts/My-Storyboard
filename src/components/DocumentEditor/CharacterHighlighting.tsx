@@ -12,6 +12,7 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
   const isTypingRef = useRef(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const highlightedNodesRef = useRef<HTMLElement[]>([]);
+  const isInitializedRef = useRef(false);
 
   useEffect(() => {
     const loadCharacters = async () => {
@@ -28,6 +29,9 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
 
     const quill = quillRef.current.getEditor();
     if (!quill) return;
+
+    // Wait for editor to be fully mounted
+    if (!quill.root) return;
 
     // Helper function to apply capitalization (inside useEffect to get latest value)
     const applyCapitalization = (text: string) => {
@@ -84,6 +88,12 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
 
         // Additional safety - check if editor is focused (user is typing)
         if (document.activeElement === editor) return;
+
+        // Don't process on initial load - give editor time to stabilize
+        if (!isInitializedRef.current) {
+          isInitializedRef.current = true;
+          return;
+        }
 
         // Get the plain text content
         const plainText = quill.getText();
@@ -186,8 +196,14 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
         const oldHTML = originalHTML;
         
         // Only update if content actually changed
-        if (newHTML !== oldHTML) {
+        if (newHTML !== oldHTML && isInitializedRef.current) {
           try {
+            // Safely check if editor is still mounted
+            if (!editor.parentNode || editor !== quill.root) {
+              console.warn('Editor DOM changed, skipping highlight update');
+              return;
+            }
+
             // Update the content safely
             editor.innerHTML = newHTML;
             
@@ -207,7 +223,9 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
             console.error('Error updating editor content:', error);
             // Restore original content on error
             try {
-              editor.innerHTML = originalHTML;
+              if (editor.parentNode && editor === quill.root) {
+                editor.innerHTML = originalHTML;
+              }
             } catch (restoreError) {
               console.error('Could not restore original content:', restoreError);
             }
@@ -274,7 +292,7 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
     const handleEditorBlur = () => {
       // Apply highlighting when editor loses focus
       setTimeout(() => {
-        if (!isTypingRef.current) {
+        if (!isTypingRef.current && isInitializedRef.current) {
           applyHighlighting();
         }
       }, 500);
@@ -283,12 +301,13 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
     quill.on('text-change', handleTextChange);
     editor.addEventListener('blur', handleEditorBlur);
 
-    // Initial highlighting
+    // Initial highlighting - with longer delay for stability
     const initialTimeout = setTimeout(() => {
+      isInitializedRef.current = true;
       if (!isTypingRef.current) {
         applyHighlighting();
       }
-    }, 2000);
+    }, 3000);
 
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);

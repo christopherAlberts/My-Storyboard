@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
 import { useAppStore } from '../../store/useAppStore';
 import { db, Document } from '../../database/schema';
 import DocumentList from './DocumentList';
-import CharacterHighlightWrapper from './CharacterHighlightWrapper';
-import HighlightedPreview from './HighlightedPreview';
-import { FileText, FolderOpen, Save, Upload, Eye } from 'lucide-react';
+import CustomEditor from './CustomEditor';
+import { FileText, FolderOpen, Save, Eye } from 'lucide-react';
 
 const DocumentEditor: React.FC = () => {
-  const { documentState, updateDocumentState, loadDocument, createNewDocument, characterRecognitionEnabled } = useAppStore();
-  const [quill, setQuill] = useState<ReactQuill | null>(null);
+  const { documentState, updateDocumentState, loadDocument, createNewDocument, characterRecognitionEnabled, toggleCharacterRecognition } = useAppStore();
   const [showDocumentList, setShowDocumentList] = useState(false);
-  const [showHighlightView, setShowHighlightView] = useState(false);
 
   useEffect(() => {
     // Initialize with a new document if none exists
@@ -73,25 +68,6 @@ const DocumentEditor: React.FC = () => {
     });
   };
 
-  const modules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'color': [] }, { 'background': [] }],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'indent': '-1'}, { 'indent': '+1' }],
-      [{ 'align': [] }],
-      ['link', 'image'],
-      ['clean']
-    ],
-  };
-
-  const formats = [
-    'header', 'bold', 'italic', 'underline', 'strike',
-    'color', 'background', 'list', 'bullet', 'indent',
-    'align', 'link', 'image'
-  ];
-
   return (
     <div className="h-full flex flex-col bg-white dark:bg-gray-800">
       {/* Document Header */}
@@ -111,16 +87,18 @@ const DocumentEditor: React.FC = () => {
             <FileText className="w-4 h-4" />
             <span>New</span>
           </button>
-          {characterRecognitionEnabled && (
-            <button
-              onClick={() => setShowHighlightView(!showHighlightView)}
-              className="flex items-center space-x-2 px-3 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-              title={showHighlightView ? 'Edit document' : 'View with character highlights'}
-            >
-              <Eye className="w-4 h-4" />
-              <span>Character Recognition</span>
-            </button>
-          )}
+          <button
+            onClick={toggleCharacterRecognition}
+            className={`flex items-center space-x-2 px-3 py-2 transition-colors ${
+              characterRecognitionEnabled 
+                ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' 
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+            title={characterRecognitionEnabled ? 'Disable character highlights' : 'Enable character highlights'}
+          >
+            <Eye className="w-4 h-4" />
+            <span>Character Recognition</span>
+          </button>
         </div>
         <div className="flex items-center space-x-3">
           <input
@@ -145,21 +123,15 @@ const DocumentEditor: React.FC = () => {
         </div>
       </div>
 
-      {/* Editor or Preview */}
-      {showHighlightView ? (
-        <HighlightedPreview
-          content={documentState.content}
-        />
-      ) : (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <CharacterHighlightWrapper
+      {/* Editor */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {documentState.content !== undefined && (
+          <CustomEditor
             content={documentState.content}
             onChange={handleContentChange}
-            modules={modules}
-            formats={formats}
           />
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Status Bar */}
       <div className="flex items-center justify-between p-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">

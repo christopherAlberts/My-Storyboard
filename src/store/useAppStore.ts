@@ -7,6 +7,7 @@ interface AppStore extends AppState {
   // Settings
   characterRecognitionEnabled: boolean;
   setCharacterRecognitionEnabled: (enabled: boolean) => void;
+  toggleCharacterRecognition: () => void;
   characterNameCapitalization: 'uppercase' | 'lowercase' | 'leave-as-is';
   setCharacterNameCapitalization: (mode: 'uppercase' | 'lowercase' | 'leave-as-is') => void;
   tooltipFields: Record<string, boolean>;
@@ -139,6 +140,9 @@ export const useAppStore = create<AppStore>()(
       // Settings
       setCharacterRecognitionEnabled: (enabled) => {
         set({ characterRecognitionEnabled: enabled });
+      },
+      toggleCharacterRecognition: () => {
+        set((state) => ({ characterRecognitionEnabled: !state.characterRecognitionEnabled }));
       },
       setCharacterNameCapitalization: (mode) => {
         set({ characterNameCapitalization: mode });
