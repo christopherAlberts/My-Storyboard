@@ -1,9 +1,11 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { Sun, Moon, Monitor, Coffee, Eye, EyeOff } from 'lucide-react';
+import { Sun, Moon, Monitor, Coffee, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 
 const Settings: React.FC = () => {
   const { theme, setTheme, characterRecognitionEnabled, setCharacterRecognitionEnabled, characterNameCapitalization, setCharacterNameCapitalization, tooltipFields, setTooltipFields } = useAppStore();
+  const [capDropdownOpen, setCapDropdownOpen] = React.useState(false);
+  const [tooltipDropdownOpen, setTooltipDropdownOpen] = React.useState(false);
 
   const themeOptions = [
     {
@@ -123,52 +125,90 @@ const Settings: React.FC = () => {
 
         {/* Character Name Capitalization */}
         {characterRecognitionEnabled && (
-          <div className="mb-8">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
-              Character Name Capitalization
-            </h3>
-            <div className="space-y-2">
-              {[
-                { value: 'uppercase', label: 'Upper Case', description: 'First letter capitalized' },
-                { value: 'lowercase', label: 'Lower Case', description: 'All lowercase' },
-                { value: 'leave-as-is', label: 'Leave As Is', description: 'Match user\'s typing' }
-              ].map((option) => (
-                <label
-                  key={option.value}
-                  className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  <input
-                    type="radio"
-                    name="capitalization"
-                    value={option.value}
-                    checked={characterNameCapitalization === option.value}
-                    onChange={(e) => setCharacterNameCapitalization(e.target.value as any)}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">
-                      {option.label}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {option.description}
-                    </div>
-                  </div>
-                </label>
-              ))}
-            </div>
+          <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setCapDropdownOpen(!capDropdownOpen)}
+              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                  Character Name Capitalization
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {characterNameCapitalization === 'uppercase' && 'Upper Case'}
+                  {characterNameCapitalization === 'lowercase' && 'Lower Case'}
+                  {characterNameCapitalization === 'leave-as-is' && 'Leave As Is'}
+                </p>
+              </div>
+              {capDropdownOpen ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {capDropdownOpen && (
+              <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="space-y-2">
+                  {[
+                    { value: 'uppercase', label: 'Upper Case', description: 'First letter capitalized' },
+                    { value: 'lowercase', label: 'Lower Case', description: 'All lowercase' },
+                    { value: 'leave-as-is', label: 'Leave As Is', description: 'Match user\'s typing' }
+                  ].map((option) => (
+                    <label
+                      key={option.value}
+                      className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <input
+                        type="radio"
+                        name="capitalization"
+                        value={option.value}
+                        checked={characterNameCapitalization === option.value}
+                        onChange={(e) => setCharacterNameCapitalization(e.target.value as any)}
+                        className="w-4 h-4 text-blue-600"
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {option.label}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {option.description}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* Tooltip Fields */}
         {characterRecognitionEnabled && (
-          <div className="mb-8">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
-              Hover Tooltip Fields
-            </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              Select which information to show when hovering over character names
-            </p>
-            <div className="space-y-3">
+          <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setTooltipDropdownOpen(!tooltipDropdownOpen)}
+              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                  Hover Tooltip Fields
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {Object.values(tooltipFields).filter(Boolean).length} fields selected
+                </p>
+              </div>
+              {tooltipDropdownOpen ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {tooltipDropdownOpen && (
+              <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  Select which information to show when hovering over character names
+                </p>
+                <div className="space-y-3">
               {[
                 { key: 'description', label: 'Description', description: 'Character description' },
                 { key: 'role', label: 'Role', description: 'Protagonist, antagonist, etc.' },
@@ -212,7 +252,9 @@ const Settings: React.FC = () => {
                   </div>
                 );
               })}
-            </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
