@@ -5,12 +5,14 @@ import { useAppStore } from '../../store/useAppStore';
 import { db, Document } from '../../database/schema';
 import DocumentList from './DocumentList';
 import CharacterHighlightWrapper from './CharacterHighlightWrapper';
-import { FileText, FolderOpen, Save, Upload } from 'lucide-react';
+import HighlightedPreview from './HighlightedPreview';
+import { FileText, FolderOpen, Save, Upload, Eye } from 'lucide-react';
 
 const DocumentEditor: React.FC = () => {
-  const { documentState, updateDocumentState, loadDocument, createNewDocument } = useAppStore();
+  const { documentState, updateDocumentState, loadDocument, createNewDocument, characterRecognitionEnabled } = useAppStore();
   const [quill, setQuill] = useState<ReactQuill | null>(null);
   const [showDocumentList, setShowDocumentList] = useState(false);
+  const [showHighlightView, setShowHighlightView] = useState(false);
 
   useEffect(() => {
     // Initialize with a new document if none exists
@@ -109,6 +111,16 @@ const DocumentEditor: React.FC = () => {
             <FileText className="w-4 h-4" />
             <span>New</span>
           </button>
+          {characterRecognitionEnabled && !showHighlightView && (
+            <button
+              onClick={() => setShowHighlightView(true)}
+              className="flex items-center space-x-2 px-3 py-2 text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 transition-colors"
+              title="View with character highlights"
+            >
+              <Eye className="w-4 h-4" />
+              <span>Show Highlights</span>
+            </button>
+          )}
         </div>
         <div className="flex items-center space-x-3">
           <input
@@ -133,15 +145,22 @@ const DocumentEditor: React.FC = () => {
         </div>
       </div>
 
-      {/* Editor */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <CharacterHighlightWrapper
+      {/* Editor or Preview */}
+      {showHighlightView ? (
+        <HighlightedPreview
           content={documentState.content}
-          onChange={handleContentChange}
-          modules={modules}
-          formats={formats}
+          onClose={() => setShowHighlightView(false)}
         />
-      </div>
+      ) : (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <CharacterHighlightWrapper
+            content={documentState.content}
+            onChange={handleContentChange}
+            modules={modules}
+            formats={formats}
+          />
+        </div>
+      )}
 
       {/* Status Bar */}
       <div className="flex items-center justify-between p-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
