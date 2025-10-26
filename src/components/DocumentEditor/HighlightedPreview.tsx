@@ -175,7 +175,7 @@ const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
           <div className="font-semibold text-sm mb-1">{tooltipState.character.name}</div>
           {tooltipState.character.description && (
             <div className="text-xs text-gray-300 line-clamp-3 mb-1">
-              {tooltipState.character.description}
+              Description: {tooltipState.character.description}
             </div>
           )}
           {tooltipState.character.role && (
