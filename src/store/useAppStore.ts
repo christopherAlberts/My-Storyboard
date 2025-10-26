@@ -9,6 +9,12 @@ interface AppStore extends AppState {
   setCharacterRecognitionEnabled: (enabled: boolean) => void;
   characterNameCapitalization: 'uppercase' | 'lowercase' | 'leave-as-is';
   setCharacterNameCapitalization: (mode: 'uppercase' | 'lowercase' | 'leave-as-is') => void;
+  tooltipFields: {
+    showDescription: boolean;
+    showRole: boolean;
+    showOccupation: boolean;
+  };
+  setTooltipFields: (fields: Partial<{ showDescription: boolean; showRole: boolean; showOccupation: boolean }>) => void;
   
   // Window management
   openWindow: (type: WindowState['type'], title: string) => void;
@@ -119,6 +125,11 @@ export const useAppStore = create<AppStore>()(
       snapPreview: initialSnapPreview,
       characterRecognitionEnabled: true,
       characterNameCapitalization: 'uppercase',
+      tooltipFields: {
+        showDescription: true,
+        showRole: true,
+        showOccupation: false,
+      },
 
       // Settings
       setCharacterRecognitionEnabled: (enabled) => {
@@ -126,6 +137,11 @@ export const useAppStore = create<AppStore>()(
       },
       setCharacterNameCapitalization: (mode) => {
         set({ characterNameCapitalization: mode });
+      },
+      setTooltipFields: (fields) => {
+        set((state) => ({
+          tooltipFields: { ...state.tooltipFields, ...fields }
+        }));
       },
 
       // Window management

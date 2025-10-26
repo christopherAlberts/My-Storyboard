@@ -3,7 +3,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { Sun, Moon, Monitor, Coffee, Eye, EyeOff } from 'lucide-react';
 
 const Settings: React.FC = () => {
-  const { theme, setTheme, characterRecognitionEnabled, setCharacterRecognitionEnabled, characterNameCapitalization, setCharacterNameCapitalization } = useAppStore();
+  const { theme, setTheme, characterRecognitionEnabled, setCharacterRecognitionEnabled, characterNameCapitalization, setCharacterNameCapitalization, tooltipFields, setTooltipFields } = useAppStore();
 
   const themeOptions = [
     {
@@ -155,6 +155,55 @@ const Settings: React.FC = () => {
                   </div>
                 </label>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tooltip Fields */}
+        {characterRecognitionEnabled && (
+          <div className="mb-8">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+              Hover Tooltip Fields
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              Select which information to show when hovering over character names
+            </p>
+            <div className="space-y-3">
+              {[
+                { key: 'showDescription', label: 'Description', description: 'Show character description' },
+                { key: 'showRole', label: 'Role', description: 'Show character role' },
+                { key: 'showOccupation', label: 'Occupation', description: 'Show character occupation' },
+              ].map((field) => {
+                const fieldKey = field.key as keyof typeof tooltipFields;
+                const isEnabled = tooltipFields[fieldKey];
+                
+                return (
+                  <div key={field.key} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {field.label}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {field.description}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setTooltipFields({ [fieldKey]: !isEnabled })}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        isEnabled
+                          ? 'bg-blue-600'
+                          : 'bg-gray-200 dark:bg-gray-700'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          isEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
