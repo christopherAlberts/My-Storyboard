@@ -7,6 +7,7 @@ import StoryboardView from '../StoryboardView/StoryboardView';
 import DatabaseView from '../DatabaseView/DatabaseView';
 import MapBuilder from '../MapBuilder/MapBuilder';
 import Settings from '../Settings/Settings';
+import ProjectFiles from '../ProjectFiles/ProjectFiles';
 import { detectSnapZone, applyWindowConstraints, DEFAULT_WINDOW_CONSTRAINTS } from './windowSnapUtils';
 
 interface WindowProps {
@@ -217,6 +218,8 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
         return <DatabaseView />;
       case 'mapbuilder':
         return <MapBuilder />;
+      case 'projectfiles':
+        return <ProjectFiles />;
       case 'settings':
         return <Settings />;
       default:

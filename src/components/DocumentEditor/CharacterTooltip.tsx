@@ -1,5 +1,5 @@
 import React from 'react';
-import { Character } from '../../database/schema';
+import { Character } from '../../services/storageService';
 import { useAppStore } from '../../store/useAppStore';
 
 interface CharacterTooltipProps {

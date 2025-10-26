@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { db, Character } from '../../database/schema';
+import { storageService, Character } from '../../services/storageService';
 
 interface CharacterHighlightingProps {
   quillRef: React.RefObject<any>;
@@ -16,7 +16,7 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
 
   useEffect(() => {
     const loadCharacters = async () => {
-      const chars = await db.characters.toArray();
+      const chars = await storageService.getCharacters();
       setCharacters(chars);
     };
     loadCharacters();
@@ -241,7 +241,7 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
       const target = e.target as HTMLElement;
       const characterSpan = target.closest('.character-name-hl');
       if (characterSpan) {
-        const characterId = parseInt(characterSpan.getAttribute('data-character-id') || '0');
+        const characterId = characterSpan.getAttribute('data-character-id') || '';
         if (characterId) {
           (window as any).showCharacterTooltip?.(e, characterId);
         }
@@ -258,7 +258,7 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
       if (characterSpan) {
         e.preventDefault();
         e.stopPropagation();
-        const characterId = parseInt(characterSpan.getAttribute('data-character-id') || '0');
+        const characterId = characterSpan.getAttribute('data-character-id') || '';
         if (characterId) {
           (window as any).openCharacterDatabase?.(e, characterId);
         }

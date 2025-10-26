@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { db, Character } from '../../database/schema';
+import { storageService, Character } from '../../services/storageService';
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback';
 import CharacterTooltip from './CharacterTooltip';
 import FormattingToolbar from './FormattingToolbar';
@@ -26,7 +26,7 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
   // Load characters from database and auto-detect changes
   useEffect(() => {
     const loadCharacters = async () => {
-      const chars = await db.characters.toArray();
+      const chars = await storageService.getCharacters();
       setCharacters(chars);
     };
     
@@ -45,9 +45,7 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
   // Initialize content
   useEffect(() => {
     if (editorRef.current && content !== undefined) {
-      if (!editorRef.current.innerHTML || editorRef.current.innerHTML === '<p><br></p>') {
-        editorRef.current.innerHTML = content || '<p><br></p>';
-      }
+      editorRef.current.innerHTML = content || '<p><br></p>';
     }
   }, []);
 
@@ -69,8 +67,10 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
 
   // Update content when prop changes from outside
   useEffect(() => {
-    if (editorRef.current && content !== undefined && removeHighlights(editorRef.current.innerHTML) !== content) {
-      if (!document.activeElement?.contains(editorRef.current)) {
+    if (editorRef.current && content !== undefined) {
+      const currentContent = removeHighlights(editorRef.current.innerHTML);
+      // Always update if the content prop is different (user switched documents)
+      if (currentContent !== content) {
         editorRef.current.innerHTML = content || '<p><br></p>';
         // Reapply highlighting after content change
         setTimeout(() => applyHighlighting(), 100);
@@ -263,7 +263,7 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
 
       // Add event listeners to character highlights
       editor.querySelectorAll('.character-highlight').forEach(span => {
-        const characterId = parseInt(span.getAttribute('data-character-id') || '0');
+        const characterId = span.getAttribute('data-character-id') || '';
         const character = characters.find(c => c.id === characterId);
         
         if (!character) return;

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { AppState, WindowState, StoryboardCanvas, DocumentState, DatabaseViewState, SnapZone, SnapPreview, WindowSnapConfig } from '../types';
-import { db, Document } from '../database/schema';
+import { storageService, Document } from '../services/storageService';
 
 interface AppStore extends AppState {
   // Settings
@@ -47,7 +47,7 @@ interface AppStore extends AppState {
   // Document state
   documentState: DocumentState;
   updateDocumentState: (updates: Partial<DocumentState>) => void;
-  loadDocument: (id: number) => Promise<void>;
+  loadDocument: (id: string) => Promise<void>;
   createNewDocument: () => void;
   
   // Database view state
@@ -81,7 +81,7 @@ const initialStoryboardCanvas: StoryboardCanvas = {
 
 const initialDocumentState: DocumentState = {
   content: '',
-  title: 'Untitled Document',
+  title: '',
   isDirty: false,
   lastSaved: null,
 };
@@ -113,44 +113,37 @@ export const useAppStore = create<AppStore>()(
       // Initial state
       windows: [],
       activeWindowId: null,
-      theme: 'dark',
+      theme: storageService.getSettings().theme,
       sidebarOpen: true,
       storyboardCanvas: initialStoryboardCanvas,
       documentState: initialDocumentState,
       databaseViewState: initialDatabaseViewState,
       snapConfig: initialSnapConfig,
       snapPreview: initialSnapPreview,
-      characterRecognitionEnabled: true,
-      characterNameCapitalization: 'uppercase',
-      tooltipFields: {
-        description: true,
-        role: true,
-        occupation: true,
-        age: false,
-        appearance: false,
-        personality: false,
-        background: false,
-        notes: false,
-        characterArc: false,
-        motivation: false,
-        fears: false,
-        goals: false,
-      },
+      characterRecognitionEnabled: storageService.getSettings().characterRecognitionEnabled,
+      characterNameCapitalization: storageService.getSettings().characterNameCapitalization,
+      tooltipFields: storageService.getSettings().tooltipFields,
 
       // Settings
       setCharacterRecognitionEnabled: (enabled) => {
         set({ characterRecognitionEnabled: enabled });
+        storageService.updateSettings({ characterRecognitionEnabled: enabled });
       },
       toggleCharacterRecognition: () => {
-        set((state) => ({ characterRecognitionEnabled: !state.characterRecognitionEnabled }));
+        const newValue = !get().characterRecognitionEnabled;
+        set({ characterRecognitionEnabled: newValue });
+        storageService.updateSettings({ characterRecognitionEnabled: newValue });
       },
       setCharacterNameCapitalization: (mode) => {
         set({ characterNameCapitalization: mode });
+        storageService.updateSettings({ characterNameCapitalization: mode });
       },
       setTooltipFields: (fields) => {
         set((state) => ({
           tooltipFields: { ...state.tooltipFields, ...fields }
         }));
+        const newFields = { ...get().tooltipFields, ...fields };
+        storageService.updateSettings({ tooltipFields: newFields });
       },
 
       // Window management
@@ -384,13 +377,14 @@ export const useAppStore = create<AppStore>()(
 
       // Theme
       toggleTheme: () => {
-        set((state) => ({
-          theme: state.theme === 'light' ? 'dark' : 'light',
-        }));
+        const newTheme = get().theme === 'light' ? 'dark' : 'light';
+        set({ theme: newTheme });
+        storageService.updateSettings({ theme: newTheme });
       },
 
       setTheme: (theme) => {
-        set((state) => ({ theme }));
+        set({ theme });
+        storageService.updateSettings({ theme });
       },
 
       // Sidebar
@@ -420,7 +414,7 @@ export const useAppStore = create<AppStore>()(
 
       loadDocument: async (id) => {
         try {
-          const document = await db.documents.get(id);
+          const document = await storageService.getDocument(id);
           if (document) {
             set((state) => ({
               documentState: {
@@ -428,7 +422,7 @@ export const useAppStore = create<AppStore>()(
                 content: document.content,
                 title: document.title,
                 isDirty: false,
-                lastSaved: document.updatedAt,
+                lastSaved: document.updatedAt ? new Date(document.updatedAt) : null,
               },
             }));
           }

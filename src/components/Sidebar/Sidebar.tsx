@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { FileText, Layout, Database, Map, Settings, X, Sun, Moon } from 'lucide-react';
+import { FileText, Layout, Database, Map, Settings, X, Sun, Moon, Folder } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
   const {
@@ -37,6 +37,12 @@ const Sidebar: React.FC = () => {
       description: 'Create interactive town maps with notes and characters',
     },
     {
+      id: 'projectfiles',
+      label: 'Project Files',
+      icon: Folder,
+      description: 'View and download project files',
+    },
+    {
       id: 'settings',
       label: 'Settings',
       icon: Settings,
@@ -50,6 +56,7 @@ const Sidebar: React.FC = () => {
       storyboard: 'Storyboard View',
       database: 'Database View',
       mapbuilder: 'Map Builder',
+      projectfiles: 'Project Files',
       settings: 'Settings',
     };
     

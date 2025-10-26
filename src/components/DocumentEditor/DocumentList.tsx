@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { db, Document } from '../../database/schema';
+import { storageService, Document } from '../../services/storageService';
 import { FileText, Plus, Edit, Trash2, Calendar, Upload, File } from 'lucide-react';
 
 interface DocumentListProps {
@@ -26,7 +26,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const loadDocuments = async () => {
     try {
       setLoading(true);
-      const docs = await db.documents.orderBy('updatedAt').reverse().toArray();
+      const docs = await storageService.getDocuments();
+      // Sort by updatedAt descending
+      docs.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
       setDocuments(docs);
     } catch (error) {
       console.error('Error loading documents:', error);
@@ -35,11 +37,11 @@ const DocumentList: React.FC<DocumentListProps> = ({
     }
   };
 
-  const handleDeleteDocument = async (id: number, e: React.MouseEvent) => {
+  const handleDeleteDocument = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (window.confirm('Are you sure you want to delete this document?')) {
       try {
-        await db.documents.delete(id);
+        await storageService.deleteDocument(id);
         await loadDocuments();
       } catch (error) {
         console.error('Error deleting document:', error);
@@ -66,11 +68,11 @@ const DocumentList: React.FC<DocumentListProps> = ({
         type: 'story',
       };
 
-      const id = await db.documents.add(doc);
+      const id = await storageService.addDocument(doc);
       await loadDocuments();
       
       // Auto-select the imported document
-      const importedDoc = await db.documents.get(id);
+      const importedDoc = await storageService.getDocument(id);
       if (importedDoc) {
         onDocumentSelect(importedDoc);
       }
@@ -123,7 +125,11 @@ const DocumentList: React.FC<DocumentListProps> = ({
     });
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (dateString: string | Date) => {
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
       day: 'numeric',
@@ -238,17 +244,17 @@ const DocumentList: React.FC<DocumentListProps> = ({
                     <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
                       <div className="flex items-center space-x-1">
                         <Calendar className="w-3 h-3" />
-                        <span>Updated {formatDate(doc.updatedAt)}</span>
+                        <span>Updated {formatDate(doc.updatedAt as any)}</span>
                       </div>
                       <div>
                         {doc.content.replace(/<[^>]*>/g, '').split(/\s+/).filter(word => word.length > 0).length} words
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center space-x-1">
                     <button
-                      onClick={(e) => handleDeleteDocument(doc.id!, e)}
-                      className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                      onClick={(e) => handleDeleteDocument(doc.id as string, e)}
+                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors rounded"
                       title="Delete document"
                     >
                       <Trash2 className="w-4 h-4" />

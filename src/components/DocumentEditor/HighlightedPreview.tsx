@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { db, Character } from '../../database/schema';
+import { storageService, Character } from '../../services/storageService';
 import { Eye } from 'lucide-react';
 
 interface HighlightedPreviewProps {
@@ -18,7 +18,7 @@ const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
 
   useEffect(() => {
     const loadCharacters = async () => {
-      const chars = await db.characters.toArray();
+      const chars = await storageService.getCharacters();
       setCharacters(chars);
     };
     loadCharacters();
@@ -26,7 +26,7 @@ const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
 
   useEffect(() => {
     // Set up tooltip handlers
-    (window as any).showCharacterTooltip = (event: MouseEvent, characterId: number) => {
+    (window as any).showCharacterTooltip = (event: MouseEvent, characterId: string) => {
       event.stopPropagation();
       const character = characters.find(c => c.id === characterId);
       if (character) {
@@ -92,7 +92,7 @@ const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
       const target = e.target as HTMLElement;
       const characterSpan = target.closest('.character-name-hl');
       if (characterSpan && (window as any).showCharacterTooltip) {
-        const characterId = parseInt(characterSpan.getAttribute('data-character-id') || '0');
+        const characterId = characterSpan.getAttribute('data-character-id') || '';
         if (characterId) {
           (window as any).showCharacterTooltip(e, characterId);
         }
@@ -111,7 +111,7 @@ const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
       if (characterSpan) {
         e.preventDefault();
         e.stopPropagation();
-        const characterId = parseInt(characterSpan.getAttribute('data-character-id') || '0');
+        const characterId = characterSpan.getAttribute('data-character-id') || '';
         if (characterId) {
           const { openWindow, updateDatabaseViewState } = useAppStore.getState();
           openWindow('database', 'Database');

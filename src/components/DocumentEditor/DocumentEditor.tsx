@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { db, Document } from '../../database/schema';
+import { storageService, Document } from '../../services/storageService';
 import DocumentList from './DocumentList';
 import CustomEditor from './CustomEditor';
 import { FileText, FolderOpen, Save } from 'lucide-react';
@@ -9,12 +9,7 @@ const DocumentEditor: React.FC = () => {
   const { documentState, updateDocumentState, loadDocument, createNewDocument } = useAppStore();
   const [showDocumentList, setShowDocumentList] = useState(false);
 
-  useEffect(() => {
-    // Initialize with a new document if none exists
-    if (!documentState.id) {
-      createNewDocument();
-    }
-  }, []);
+  // Don't auto-create a document - user must manually create or open one
 
   const handleDocumentSelect = async (document: Document) => {
     await loadDocument(document.id!);
@@ -30,7 +25,7 @@ const DocumentEditor: React.FC = () => {
     try {
       if (documentState.id) {
         // Update existing document
-        await db.documents.update(documentState.id, {
+        await storageService.updateDocument(documentState.id as any, {
           title: documentState.title,
           content: documentState.content,
         });
@@ -41,8 +36,8 @@ const DocumentEditor: React.FC = () => {
           content: documentState.content,
           type: 'story',
         };
-        const id = await db.documents.add(doc);
-        updateDocumentState({ id: id as number });
+        const id = await storageService.addDocument(doc);
+        updateDocumentState({ id: id as any });
       }
       
       updateDocumentState({
@@ -91,7 +86,7 @@ const DocumentEditor: React.FC = () => {
         <div className="flex items-center space-x-3">
           <input
             type="text"
-            value={documentState.title}
+            value={documentState.title || ''}
             onChange={handleTitleChange}
             className="text-lg font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-white"
             placeholder="Document Title"
@@ -116,9 +111,35 @@ const DocumentEditor: React.FC = () => {
 
       {/* Editor */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {documentState.content !== undefined && (
+        {!documentState.title ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <FileText className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                No Document Open
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Open an existing document or create a new one to start writing
+              </p>
+              <div className="flex items-center justify-center space-x-3">
+                <button
+                  onClick={() => setShowDocumentList(true)}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  Open Document
+                </button>
+                <button
+                  onClick={handleNewDocument}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                >
+                  New Document
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
           <CustomEditor
-            content={documentState.content}
+            content={documentState.content || ''}
             onChange={handleContentChange}
             showTableOfContents={false}
             onToggleTableOfContents={undefined}
@@ -130,11 +151,11 @@ const DocumentEditor: React.FC = () => {
       <div className="flex items-center justify-between p-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
         <div>
           {documentState.lastSaved && (
-            <span>Last saved: {documentState.lastSaved.toLocaleTimeString()}</span>
+            <span>Last saved: {new Date(documentState.lastSaved).toLocaleTimeString()}</span>
           )}
         </div>
         <div>
-          Word count: {documentState.content.replace(/<[^>]*>/g, '').split(/\s+/).filter(word => word.length > 0).length}
+          Word count: {(documentState.content || '').replace(/<[^>]*>/g, '').split(/\s+/).filter(word => word.length > 0).length}
         </div>
       </div>
 

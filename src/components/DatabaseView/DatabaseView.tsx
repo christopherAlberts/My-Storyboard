@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { db, Character, Location, PlotPoint, Chapter } from '../../database/schema';
+import { storageService, Character, Location, PlotPoint, Chapter } from '../../services/storageService';
 import CharacterTable from './CharacterTable';
 import LocationTable from './LocationTable';
 import PlotPointTable from './PlotPointTable';
@@ -46,10 +46,10 @@ const DatabaseView: React.FC = () => {
     try {
       setLoading(true);
       const [charactersData, locationsData, plotPointsData, chaptersData] = await Promise.all([
-        db.characters.toArray(),
-        db.locations.toArray(),
-        db.plotPoints.toArray(),
-        db.chapters.toArray(),
+        storageService.getCharacters(),
+        storageService.getLocations(),
+        storageService.getPlotPoints(),
+        storageService.getChapters(),
       ]);
 
       setCharacters(charactersData);
@@ -93,7 +93,7 @@ const DatabaseView: React.FC = () => {
             enemies: '',
             customFields: {},
           };
-          await db.characters.add(newCharacter);
+          await storageService.addCharacter(newCharacter);
           break;
 
         case 'location':
@@ -117,7 +117,7 @@ const DatabaseView: React.FC = () => {
             frequentCharacters: [],
             customFields: {},
           };
-          await db.locations.add(newLocation);
+          await storageService.addLocation(newLocation);
           break;
 
         case 'plot_point':
@@ -137,7 +137,7 @@ const DatabaseView: React.FC = () => {
             themes: [],
             customFields: {},
           };
-          await db.plotPoints.add(newPlotPoint);
+          await storageService.addPlotPoint(newPlotPoint);
           break;
 
         case 'chapter':
@@ -149,8 +149,8 @@ const DatabaseView: React.FC = () => {
             plotPointIds: [],
             notes: '',
             wordCount: 0,
-            povCharacter: 0,
-            mainLocation: 0,
+            povCharacter: '',
+            mainLocation: '',
             themes: [],
             mood: '',
             pacing: 'medium',
@@ -158,7 +158,7 @@ const DatabaseView: React.FC = () => {
             resolution: '',
             customFields: {},
           };
-          await db.chapters.add(newChapter);
+          await storageService.addChapter(newChapter);
           break;
       }
 
@@ -168,20 +168,20 @@ const DatabaseView: React.FC = () => {
     }
   };
 
-  const handleUpdateItem = async (type: string, id: number, updates: any) => {
+  const handleUpdateItem = async (type: string, id: string, updates: any) => {
     try {
       switch (type) {
         case 'character':
-          await db.characters.update(id, updates);
+          await storageService.updateCharacter(id, updates);
           break;
         case 'location':
-          await db.locations.update(id, updates);
+          await storageService.updateLocation(id, updates);
           break;
         case 'plot_point':
-          await db.plotPoints.update(id, updates);
+          await storageService.updatePlotPoint(id, updates);
           break;
         case 'chapter':
-          await db.chapters.update(id, updates);
+          await storageService.updateChapter(id, updates);
           break;
       }
 
@@ -191,20 +191,20 @@ const DatabaseView: React.FC = () => {
     }
   };
 
-  const handleDeleteItem = async (type: string, id: number) => {
+  const handleDeleteItem = async (type: string, id: string) => {
     try {
       switch (type) {
         case 'character':
-          await db.characters.delete(id);
+          await storageService.deleteCharacter(id);
           break;
         case 'location':
-          await db.locations.delete(id);
+          await storageService.deleteLocation(id);
           break;
         case 'plot_point':
-          await db.plotPoints.delete(id);
+          await storageService.deletePlotPoint(id);
           break;
         case 'chapter':
-          await db.chapters.delete(id);
+          await storageService.deleteChapter(id);
           break;
       }
 
