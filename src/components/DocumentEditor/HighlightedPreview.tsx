@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { db, Character } from '../../database/schema';
-import { Eye, Edit } from 'lucide-react';
+import { Eye } from 'lucide-react';
 
 interface HighlightedPreviewProps {
   content: string;
-  onClose: () => void;
 }
 
-const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content, onClose }) => {
+const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
   const { characterRecognitionEnabled, characterNameCapitalization } = useAppStore();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [tooltipState, setTooltipState] = useState<{
@@ -139,17 +138,13 @@ const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content, onClos
 
   return (
     <>
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Document Preview with Character Highlights
+          Character Recognition Mode
         </h3>
-        <button
-          onClick={onClose}
-          className="flex items-center space-x-2 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-        >
-          <Edit className="w-4 h-4" />
-          <span>Edit Document</span>
-        </button>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+          Click character names to view details
+        </p>
       </div>
       <div 
         className="flex-1 p-8 overflow-y-auto prose max-w-none dark:prose-invert"

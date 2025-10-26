@@ -111,14 +111,18 @@ const DocumentEditor: React.FC = () => {
             <FileText className="w-4 h-4" />
             <span>New</span>
           </button>
-          {characterRecognitionEnabled && !showHighlightView && (
+          {characterRecognitionEnabled && (
             <button
-              onClick={() => setShowHighlightView(true)}
-              className="flex items-center space-x-2 px-3 py-2 text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 transition-colors"
-              title="View with character highlights"
+              onClick={() => setShowHighlightView(!showHighlightView)}
+              className={`flex items-center space-x-2 px-3 py-2 transition-colors ${
+                showHighlightView
+                  ? 'bg-blue-500 text-white hover:bg-blue-600'
+                  : 'text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300'
+              }`}
+              title={showHighlightView ? 'Edit document' : 'View with character highlights'}
             >
               <Eye className="w-4 h-4" />
-              <span>Show Highlights</span>
+              <span>Character Recognition</span>
             </button>
           )}
         </div>
@@ -149,7 +153,6 @@ const DocumentEditor: React.FC = () => {
       {showHighlightView ? (
         <HighlightedPreview
           content={documentState.content}
-          onClose={() => setShowHighlightView(false)}
         />
       ) : (
         <div className="flex-1 flex flex-col overflow-hidden">
