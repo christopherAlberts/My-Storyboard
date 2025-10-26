@@ -73,40 +73,6 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
       highlightedNodesRef.current = [];
     };
 
-    const attachEventListeners = (editorElement: HTMLElement) => {
-      // Find all character highlights and attach event listeners
-      const highlightedSpans = editorElement.querySelectorAll('.character-name-hl');
-      
-      highlightedSpans.forEach((span) => {
-        const characterId = parseInt(span.getAttribute('data-character-id') || '0');
-        const character = characters.find(c => c.id === characterId);
-        
-        if (!character) return;
-        
-        // Remove old listeners if any
-        const newSpan = span.cloneNode(true);
-        span.parentNode?.replaceChild(newSpan, span);
-        
-        // Attach mouse enter
-        newSpan.addEventListener('mouseenter', (e: Event) => {
-          const mouseEvent = e as MouseEvent;
-          (window as any).showCharacterTooltip?.(mouseEvent, characterId);
-        });
-        
-        // Attach mouse leave
-        newSpan.addEventListener('mouseleave', () => {
-          (window as any).hideCharacterTooltip?.();
-        });
-        
-        // Attach click
-        newSpan.addEventListener('click', (e: Event) => {
-          const mouseEvent = e as MouseEvent;
-          mouseEvent.preventDefault();
-          mouseEvent.stopPropagation();
-          (window as any).openCharacterDatabase?.(mouseEvent, characterId);
-        });
-      });
-    };
 
     const applyHighlighting = () => {
       try {
@@ -156,31 +122,50 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
             const regex = new RegExp(`\\b${character.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
             if (!regex.test(text)) return;
 
-            // Split the text and wrap matches
-            const parts = text.split(regex);
-            if (parts.length <= 1) return;
+            // Find matches and their positions
+            const matches = [];
+            let match;
+            while ((match = regex.exec(text)) !== null) {
+              matches.push({
+                index: match.index,
+                text: match[0], // The actual text as user typed it
+                length: match[0].length
+              });
+            }
+
+            if (matches.length === 0) return;
 
             // Create document fragment
             const fragment = document.createDocumentFragment();
-            
-            // Add the parts and matches
-            for (let i = 0; i < parts.length; i++) {
-              // Add text part
-              if (parts[i]) {
-                fragment.appendChild(document.createTextNode(parts[i]));
+            let lastIndex = 0;
+
+            matches.forEach((match, i) => {
+              // Add text before match
+              if (match.index > lastIndex) {
+                fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
               }
+
+              // Add character name span with original text or capitalized
+              const span = document.createElement('span');
+              span.className = 'character-name-hl';
+              span.style.color = character.color;
+              span.dataset.characterId = character.id?.toString() || '';
+              span.dataset.characterName = character.name;
               
-              // Add character name span between parts (except last)
-              if (i < parts.length - 1) {
-                const span = document.createElement('span');
-                span.className = 'character-name-hl';
-                span.style.color = character.color;
-                span.dataset.characterId = character.id?.toString() || '';
-                span.dataset.characterName = character.name;
-                // Apply capitalization based on setting
-                span.textContent = applyCapitalization(character.name);
-                fragment.appendChild(span);
-              }
+              // For leave-as-is, use the actual text as typed. Otherwise apply capitalization
+              const displayText = characterNameCapitalization === 'leave-as-is' 
+                ? match.text 
+                : applyCapitalization(match.text);
+              
+              span.textContent = displayText;
+              fragment.appendChild(span);
+
+              lastIndex = match.index + match.length;
+            });
+
+            // Add remaining text after last match
+            if (lastIndex < text.length) {
+              fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
             }
 
             // Replace the text node with the fragment
@@ -196,9 +181,6 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
           // Update the content
           editor.innerHTML = newHTML;
           
-          // Attach event listeners to the new spans in the editor
-          attachEventListeners(editor);
-          
           // Restore selection if it exists
           if (selection) {
             setTimeout(() => quill.setSelection(selection.index || 0, selection.length || 0), 10);
@@ -208,6 +190,40 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
         console.error('Error applying highlighting:', err);
       }
     };
+
+    // Store handlers for cleanup
+    const handleMouseEnter = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const characterSpan = target.closest('.character-name-hl');
+      if (characterSpan) {
+        const characterId = parseInt(characterSpan.getAttribute('data-character-id') || '0');
+        if (characterId) {
+          (window as any).showCharacterTooltip?.(e, characterId);
+        }
+      }
+    };
+
+    const handleMouseLeave = () => {
+      (window as any).hideCharacterTooltip?.();
+    };
+
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const characterSpan = target.closest('.character-name-hl');
+      if (characterSpan) {
+        e.preventDefault();
+        e.stopPropagation();
+        const characterId = parseInt(characterSpan.getAttribute('data-character-id') || '0');
+        if (characterId) {
+          (window as any).openCharacterDatabase?.(e, characterId);
+        }
+      }
+    };
+
+    // Attach global event listeners using event delegation
+    editor.addEventListener('mouseenter', handleMouseEnter, true);
+    editor.addEventListener('mouseleave', handleMouseLeave, true);
+    editor.addEventListener('click', handleClick, true);
 
     const handleTextChange = () => {
       isTypingRef.current = true;
@@ -236,6 +252,12 @@ const CharacterHighlighting: React.FC<CharacterHighlightingProps> = ({ quillRef 
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       clearTimeout(initialTimeout);
       quill.off('text-change', handleTextChange);
+      
+      // Remove event listeners
+      editor.removeEventListener('mouseenter', handleMouseEnter, true);
+      editor.removeEventListener('mouseleave', handleMouseLeave, true);
+      editor.removeEventListener('click', handleClick, true);
+      
       removeHighlighting();
       isTypingRef.current = false;
     };
