@@ -11,10 +11,9 @@ interface CustomEditorProps {
 
 const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange }) => {
   const editorRef = useRef<HTMLDivElement>(null);
-  const highlightOverlayRef = useRef<HTMLDivElement>(null);
   const { characterRecognitionEnabled, characterNameCapitalization } = useAppStore();
   const [characters, setCharacters] = useState<Character[]>([]);
-  const [isHighlighting, setIsHighlighting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [tooltipState, setTooltipState] = useState<{ character: Character; position: { x: number; y: number } } | null>(null);
 
@@ -36,215 +35,319 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange }) => {
     }
   }, []);
 
+  // Remove highlighting spans from HTML
+  const removeHighlights = (html: string): string => {
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    
+    // Remove all .character-highlight spans and preserve their text
+    temp.querySelectorAll('.character-highlight').forEach(span => {
+      const parent = span.parentNode;
+      if (parent) {
+        parent.replaceChild(document.createTextNode(span.textContent || ''), span);
+      }
+    });
+    
+    return temp.innerHTML;
+  };
+
   // Update content when prop changes from outside
   useEffect(() => {
-    if (editorRef.current && content !== undefined && editorRef.current.innerHTML !== content) {
+    if (editorRef.current && content !== undefined && removeHighlights(editorRef.current.innerHTML) !== content) {
       if (!document.activeElement?.contains(editorRef.current)) {
         editorRef.current.innerHTML = content || '<p><br></p>';
+        // Reapply highlighting after content change
+        setTimeout(() => applyHighlighting(), 100);
       }
     }
   }, [content]);
 
-
   const handleContentChange = useDebouncedCallback(() => {
-    if (editorRef.current && !isHighlighting) {
-      onChange(editorRef.current.innerHTML);
+    if (editorRef.current && !isProcessing) {
+      // Remove highlighting spans before saving - save clean content
+      const cleanContent = removeHighlights(editorRef.current.innerHTML);
+      onChange(cleanContent);
     }
   }, 300);
 
   const applyHighlighting = () => {
-    if (!characterRecognitionEnabled || characters.length === 0 || !editorRef.current || !highlightOverlayRef.current) {
-      return;
-    }
+    if (!editorRef.current || isProcessing) return;
 
-    setIsHighlighting(true);
+    setIsProcessing(true);
 
     try {
       const editor = editorRef.current;
-      const overlay = highlightOverlayRef.current;
       
-      // Get the text content
+      // Save cursor position
+      const selection = window.getSelection();
+      const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+      let cursorOffset = 0;
+      
+      if (range && range.startContainer === editor) {
+        const preCaretRange = range.cloneRange();
+        preCaretRange.selectNodeContents(editor);
+        preCaretRange.setEnd(range.startContainer, range.startOffset);
+        cursorOffset = preCaretRange.toString().length;
+      }
+      
+      // Get the plain text content
       const text = editor.textContent || '';
       if (!text.trim()) {
-        overlay.innerHTML = '';
-        setIsHighlighting(false);
+        setIsProcessing(false);
         return;
       }
 
-      const applyCapitalization = (text: string) => {
-        switch (characterNameCapitalization) {
-          case 'uppercase':
-            return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
-          case 'lowercase':
-            return text.toLowerCase();
-          case 'leave-as-is':
-            return text;
-          default:
-            return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+      // Remove all existing character highlights first
+      editor.querySelectorAll('.character-highlight').forEach(span => {
+        const parent = span.parentNode;
+        if (parent) {
+          parent.replaceChild(document.createTextNode(span.textContent || ''), span);
+          parent.normalize();
         }
-      };
+      });
 
-      // Clone the editor structure for overlay - this gives us the exact visual layout
-      const clonedContent = editor.cloneNode(true) as HTMLElement;
-      
-      // Make all text transparent in the overlay, we'll only show character highlights
-      const allTextNodes = (node: Node) => {
-        if (node.nodeType === Node.TEXT_NODE) {
-          node.textContent = node.textContent; // Keep same text, just mark it
-        } else {
-          for (const child of Array.from(node.childNodes)) {
-            allTextNodes(child);
-          }
-        }
-      };
-      allTextNodes(clonedContent);
-      
-      overlay.innerHTML = '';
-      overlay.appendChild(clonedContent);
+      if (!characterRecognitionEnabled) {
+        setIsProcessing(false);
+        return;
+      }
 
-      // Find all text nodes and highlight character names
-      const walker = document.createTreeWalker(clonedContent, NodeFilter.SHOW_TEXT);
-      const textNodes: Text[] = [];
+      if (characters.length === 0) {
+        setIsProcessing(false);
+        return;
+      }
+      
+      const offsetBeforeHighlight = cursorOffset;
+
+      // Process each text node
+      const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+      const nodesToProcess: Text[] = [];
       let node;
       
       while ((node = walker.nextNode())) {
         if (node instanceof Text) {
-          textNodes.push(node);
+          nodesToProcess.push(node);
         }
       }
 
-      textNodes.forEach(textNode => {
+      // Collect all matches across all characters first
+      interface MatchInfo {
+        start: number;
+        end: number;
+        character: Character;
+      }
+
+      nodesToProcess.forEach(textNode => {
         const text = textNode.textContent || '';
-        if (!text.trim()) return;
+        if (!text.trim() || textNode.parentElement?.classList.contains('character-highlight')) return;
+
+        // Collect all character matches from this text node
+        const allMatches: MatchInfo[] = [];
+        
+        characters.forEach(character => {
+          if (!character.color || !character.name) return;
+
+          // Use word boundary to match only the character name as a whole word
+          const escapedName = character.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+          let match;
+          
+          while ((match = regex.exec(text)) !== null) {
+            allMatches.push({
+              start: match.index,
+              end: match.index + match[0].length,
+              character
+            });
+          }
+        });
+
+        // Sort matches by position
+        allMatches.sort((a, b) => a.start - b.start);
+
+        // Remove overlapping matches
+        const filteredMatches: MatchInfo[] = [];
+        for (const match of allMatches) {
+          let overlaps = false;
+          for (const existing of filteredMatches) {
+            if ((match.start >= existing.start && match.start < existing.end) ||
+                (match.end > existing.start && match.end <= existing.end) ||
+                (match.start <= existing.start && match.end >= existing.end)) {
+              overlaps = true;
+              break;
+            }
+          }
+          if (!overlaps) {
+            filteredMatches.push(match);
+          }
+        }
+
+        if (filteredMatches.length === 0) return;
 
         const fragment = document.createDocumentFragment();
         let lastIndex = 0;
 
-        characters.forEach(character => {
-          if (!character.color || !character.name) return;
-
-          const regex = new RegExp(`\\b${character.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-          const matches = [];
-          let match;
-
-          while ((match = regex.exec(text)) !== null) {
-            matches.push({
-              index: match.index,
-              length: match[0].length,
-              character
-            });
+        filteredMatches.forEach(({ start, end, character: char }) => {
+          // Add text before match (plain text, no styling)
+          if (start > lastIndex) {
+            const textNode = document.createTextNode(text.substring(lastIndex, start));
+            fragment.appendChild(textNode);
           }
 
-          matches.forEach(({ index, length, character }) => {
-            // Add text before match
-            if (index > lastIndex) {
-              fragment.appendChild(document.createTextNode(text.substring(lastIndex, index)));
-            }
-
-            // Add highlighted character name
-            // IMPORTANT: Use the ORIGINAL text from the editor to prevent overlap
-            const span = document.createElement('span');
-            const originalText = text.substring(index, index + length);
-            
-            span.textContent = originalText; // Keep original text to match editor
-            span.style.color = character.color;
-            span.style.textDecoration = 'underline';
-            span.style.cursor = 'pointer';
-            span.style.pointerEvents = 'auto';
-            span.setAttribute('data-character-id', character.id?.toString() || '');
-            span.setAttribute('data-character-name', character.name);
-            span.className = 'character-highlight';
-            
-            // Add hover effect
-            span.addEventListener('mouseenter', () => {
-              span.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
-            });
-            span.addEventListener('mouseleave', () => {
-              span.style.backgroundColor = '';
-            });
-            
-            fragment.appendChild(span);
-
-            lastIndex = index + length;
-          });
+          // Add highlighted character name
+          const span = document.createElement('span');
+          span.className = 'character-highlight';
+          // Set inline styles
+          span.setAttribute('style', `color: ${char.color}; text-decoration: underline; cursor: pointer;`);
+          span.setAttribute('data-character-id', char.id?.toString() || '');
+          span.setAttribute('data-character-name', char.name);
+          span.textContent = text.substring(start, end);
+          
+          fragment.appendChild(span);
+          lastIndex = end;
         });
 
-        // Add remaining text
+        // Add remaining text after last match (plain text, no styling)
         if (lastIndex < text.length) {
-          fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+          const textNode = document.createTextNode(text.substring(lastIndex));
+          fragment.appendChild(textNode);
         }
 
         // Replace text node with fragment
         if (fragment.hasChildNodes()) {
-          textNode.parentNode?.replaceChild(fragment, textNode);
+          try {
+            textNode.parentNode?.replaceChild(fragment, textNode);
+          } catch (err) {
+            console.error('Error replacing text node:', err);
+          }
         }
       });
 
-      // Handle clicks and hovers on character names in overlay
-      clonedContent.querySelectorAll('.character-highlight').forEach(span => {
+      // Add event listeners to character highlights
+      editor.querySelectorAll('.character-highlight').forEach(span => {
         const characterId = parseInt(span.getAttribute('data-character-id') || '0');
         const character = characters.find(c => c.id === characterId);
         
         if (!character) return;
+
+        // Remove existing listeners to avoid duplicates
+        const newSpan = span.cloneNode(true) as HTMLElement;
         
         // Add click handler
-        span.addEventListener('click', (e) => {
+        newSpan.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (characterId) {
-            const { openWindow, updateDatabaseViewState } = useAppStore.getState();
-            openWindow('database', 'Database');
-            setTimeout(() => {
-              updateDatabaseViewState({ activeTable: 'characters' });
-              const customEvent = new CustomEvent('select-character', { 
-                detail: { characterId } 
-              });
-              window.dispatchEvent(customEvent);
-            }, 100);
-          }
+          const { openWindow, updateDatabaseViewState } = useAppStore.getState();
+          openWindow('database', 'Database');
+          setTimeout(() => {
+            updateDatabaseViewState({ activeTable: 'characters' });
+            const customEvent = new CustomEvent('select-character', { 
+              detail: { characterId } 
+            });
+            window.dispatchEvent(customEvent);
+          }, 100);
         });
         
-        // Add custom tooltip on hover
-        span.addEventListener('mouseenter', (e) => {
-          const rect = span.getBoundingClientRect();
+        // Add hover handler
+        newSpan.addEventListener('mouseenter', (e) => {
+          e.stopPropagation();
+          const rect = newSpan.getBoundingClientRect();
           setTooltipState({
             character,
             position: { x: rect.left + (rect.width / 2), y: rect.top }
           });
         });
         
-        span.addEventListener('mouseleave', () => {
+        newSpan.addEventListener('mouseleave', (e) => {
+          e.stopPropagation();
           setTooltipState(null);
         });
+
+        // Add hover background effect
+        newSpan.addEventListener('mouseenter', () => {
+          newSpan.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
+        });
+        newSpan.addEventListener('mouseleave', () => {
+          newSpan.style.backgroundColor = '';
+        });
+
+        // Don't replace if it's the same element
+        if (span.parentNode && span !== newSpan) {
+          span.parentNode.replaceChild(newSpan, span);
+        }
       });
+
+      // Restore cursor position
+      if (selection && range) {
+        try {
+          const textNodes = [];
+          const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+          let node;
+          while ((node = walker.nextNode())) {
+            textNodes.push(node);
+          }
+
+          let currentOffset = 0;
+          for (const textNode of textNodes) {
+            const nodeLength = textNode.textContent?.length || 0;
+            if (currentOffset + nodeLength >= offsetBeforeHighlight) {
+              const newRange = document.createRange();
+              const offsetInNode = offsetBeforeHighlight - currentOffset;
+              newRange.setStart(textNode, Math.min(offsetInNode, nodeLength));
+              newRange.setEnd(textNode, Math.min(offsetInNode, nodeLength));
+              selection.removeAllRanges();
+              selection.addRange(newRange);
+              break;
+            }
+            currentOffset += nodeLength;
+          }
+        } catch (err) {
+          console.error('Error restoring cursor:', err);
+        }
+      }
+
     } catch (err) {
       console.error('Error applying highlighting:', err);
     } finally {
-      setIsHighlighting(false);
+      setIsProcessing(false);
     }
   };
 
   // Apply highlighting when content changes or recognition is toggled
   useEffect(() => {
-    if (characterRecognitionEnabled && characters.length > 0) {
-      const timeout = setTimeout(applyHighlighting, 500);
-      return () => clearTimeout(timeout);
-    } else if (highlightOverlayRef.current) {
-      highlightOverlayRef.current.innerHTML = '';
+    // Don't highlight while user is actively typing
+    if (editorRef.current?.contains(document.activeElement)) {
+      return;
     }
+    const timeout = setTimeout(applyHighlighting, 300);
+    return () => clearTimeout(timeout);
   }, [content, characterRecognitionEnabled, characters.length, characterNameCapitalization]);
 
   // Debounced highlighting when typing
   const debouncedHighlight = useDebouncedCallback(() => {
-    if (characterRecognitionEnabled) {
+    // Only apply highlighting if editor is not focused (user stopped typing)
+    if (!editorRef.current?.contains(document.activeElement)) {
       applyHighlighting();
     }
-  }, 1000);
+  }, 2000);
 
   const handleInput = () => {
     handleContentChange();
     debouncedHighlight();
   };
+  
+  // Apply highlighting when editor loses focus
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    
+    const handleBlur = () => {
+      if (characterRecognitionEnabled) {
+        setTimeout(applyHighlighting, 300);
+      }
+    };
+    
+    editor.addEventListener('blur', handleBlur);
+    return () => editor.removeEventListener('blur', handleBlur);
+  }, [characterRecognitionEnabled]);
 
   // Cleanup
   useEffect(() => {
@@ -257,7 +360,7 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange }) => {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-800">
-      {/* Editor container with overlay */}
+      {/* Editor container */}
       <div className="flex-1 relative overflow-auto">
         {tooltipState && (
           <CharacterTooltip
@@ -278,20 +381,6 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange }) => {
             wordWrap: 'break-word'
           }}
         />
-
-        {/* Highlight overlay - sits on top but doesn't block interaction */}
-        {characterRecognitionEnabled && (
-          <div
-            ref={highlightOverlayRef}
-            className="absolute inset-0 overflow-hidden p-4"
-            style={{
-              whiteSpace: 'pre-wrap',
-              wordWrap: 'break-word',
-              zIndex: 1,
-              pointerEvents: 'none'
-            }}
-          />
-        )}
       </div>
     </div>
   );

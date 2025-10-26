@@ -9,7 +9,7 @@ interface CharacterTooltipProps {
 }
 
 const CharacterTooltip: React.FC<CharacterTooltipProps> = ({ character, position, onClose }) => {
-  const { tooltipFields } = useAppStore();
+  const { tooltipFields, theme } = useAppStore();
   
   const visibleFields = [
     { key: 'description', value: character.description, label: 'Description' },
@@ -30,22 +30,31 @@ const CharacterTooltip: React.FC<CharacterTooltipProps> = ({ character, position
     return null;
   }
 
+  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
   return (
     <div
-      className="fixed bg-gray-900 dark:bg-gray-800 text-white p-4 rounded-lg shadow-xl z-50 max-w-sm pointer-events-none"
+      className="fixed p-4 rounded-lg shadow-2xl z-50 max-w-sm pointer-events-none border-2"
       style={{
         left: `${position.x + 10}px`,
         top: `${position.y - 10}px`,
+        backgroundColor: isDark ? '#1f2937' : '#ffffff',
+        color: isDark ? '#ffffff' : '#111827',
+        borderColor: isDark ? '#4b5563' : '#e5e7eb',
+        boxShadow: isDark 
+          ? '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2)' 
+          : '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.15)'
       }}
     >
-      <div className="font-semibold text-sm mb-2 pb-2 border-b border-gray-700">
+      <div className="font-semibold text-sm mb-2 pb-2 border-b"
+           style={{ borderColor: isDark ? '#4b5563' : '#e5e7eb' }}>
         {character.name}
       </div>
       <div className="space-y-2 max-h-64 overflow-y-auto">
         {visibleFields.map((field, index) => (
           <div key={index} className="text-xs">
-            <span className="text-gray-400">{field.label}:</span>{' '}
-            <span className="text-gray-200">{field.value}</span>
+            <span style={{ color: isDark ? '#9ca3af' : '#6b7280', fontWeight: 500 }}>{field.label}:</span>{' '}
+            <span style={{ color: isDark ? '#e5e7eb' : '#374151' }}>{field.value}</span>
           </div>
         ))}
       </div>

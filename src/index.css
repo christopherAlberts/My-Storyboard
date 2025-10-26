@@ -21,8 +21,13 @@
 }
 
 .character-highlight {
-  text-decoration: underline;
-  cursor: pointer;
+  text-decoration: underline !important;
+  cursor: pointer !important;
+  display: inline !important;
+  background: transparent !important;
+  font-weight: inherit !important;
+  font-size: inherit !important;
+  font-family: inherit !important;
 }
 
 .ProseMirror ul,
