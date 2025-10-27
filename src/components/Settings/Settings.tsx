@@ -181,8 +181,7 @@ const Settings: React.FC = () => {
           </h2>
 
         {/* Character Name Capitalization */}
-        (
-          <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <button
               onClick={() => setCapDropdownOpen(!capDropdownOpen)}
               className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -237,11 +236,9 @@ const Settings: React.FC = () => {
               </div>
             )}
           </div>
-        )}
 
         {/* Character Tooltip Fields */}
-        (
-          <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <button
               onClick={() => setTooltipDropdownOpen(!tooltipDropdownOpen)}
               className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -313,7 +310,6 @@ const Settings: React.FC = () => {
               </div>
             )}
           </div>
-        )}
         </div>
 
         {/* Location Recognition */}
@@ -323,8 +319,7 @@ const Settings: React.FC = () => {
           </h2>
 
         {/* Location Name Capitalization */}
-        (
-          <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <button
               onClick={() => setLocationCapDropdownOpen(!locationCapDropdownOpen)}
               className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -379,11 +374,9 @@ const Settings: React.FC = () => {
               </div>
             )}
           </div>
-        )}
 
         {/* Location Tooltip Fields */}
-        (
-          <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <button
               onClick={() => setLocationTooltipDropdownOpen(!locationTooltipDropdownOpen)}
               className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -452,7 +445,6 @@ const Settings: React.FC = () => {
               </div>
             )}
           </div>
-        )}
         </div>
 
         {/* Buy Me a Coffee */}
