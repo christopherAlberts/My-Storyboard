@@ -314,6 +314,7 @@ const Settings: React.FC = () => {
             )}
           </div>
         )}
+        </div>
 
         {/* Location Recognition */}
         <div className="mb-8">
@@ -452,6 +453,7 @@ const Settings: React.FC = () => {
             )}
           </div>
         )}
+        </div>
 
         {/* Buy Me a Coffee */}
         <div className="mb-8">
