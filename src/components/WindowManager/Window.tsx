@@ -28,7 +28,8 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
     setSnapPreview, 
     snapWindowToZone,
     unsnapWindow,
-    toggleFullscreen
+    toggleFullscreen,
+    windows
   } = useAppStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -228,17 +229,37 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
   };
 
   if (window.isMinimized) {
+    // Calculate position for multiple minimized windows
+    const minimizedWindows = windows.filter(w => w.isMinimized);
+    const minimizedIndex = minimizedWindows.findIndex(w => w.id === window.id);
+    const leftOffset = minimizedIndex * 200; // Stack windows horizontally
+    const topOffset = minimizedIndex * 60; // Stack windows vertically
+    
     return (
       <div
-        className={`fixed bottom-4 left-4 bg-gray-200 dark:bg-gray-700 rounded-lg shadow-lg p-3 cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors ${
+        className={`fixed bg-gray-200 dark:bg-gray-700 rounded-lg shadow-lg p-3 cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center gap-2 ${
           isActive ? 'ring-2 ring-blue-500' : ''
         }`}
         onClick={onClick}
-        style={{ zIndex: window.zIndex }}
+        style={{ 
+          zIndex: window.zIndex,
+          bottom: `${16 + topOffset}px`,
+          left: `${16 + leftOffset}px`
+        }}
       >
         <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
           {window.title}
         </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            closeWindow(window.id);
+          }}
+          className="ml-auto p-1 hover:bg-red-200 dark:hover:bg-red-600 rounded transition-colors"
+          title="Close"
+        >
+          <X className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+        </button>
       </div>
     );
   }

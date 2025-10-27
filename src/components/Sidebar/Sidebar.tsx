@@ -63,18 +63,30 @@ const Sidebar: React.FC = () => {
     openWindow(type, titles[type]);
   };
 
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const sidebar = document.querySelector('[data-sidebar]');
+      const clickedEl = e.target as Node;
+      
+      if (sidebarOpen && sidebar && !sidebar.contains(clickedEl)) {
+        setSidebarOpen(false);
+      }
+    };
+
+    if (sidebarOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [sidebarOpen, setSidebarOpen]);
+
   return (
     <>
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
       {/* Sidebar */}
       <div
+        data-sidebar
         className={`fixed top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out z-50 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
