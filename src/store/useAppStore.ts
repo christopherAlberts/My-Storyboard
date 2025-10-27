@@ -159,10 +159,12 @@ export const useAppStore = create<AppStore>()(
         storageService.updateSettings({ locationNameCapitalization: mode });
       },
       setTooltipFields: (fields) => {
-        set((state) => ({
-          tooltipFields: { ...state.tooltipFields, ...fields }
-        }));
-        const newFields = { ...get().tooltipFields, ...fields };
+        // Merge the new fields with existing ones BEFORE updating state
+        const currentFields = get().tooltipFields;
+        const newFields = { ...currentFields, ...fields };
+        
+        // Update state and storage simultaneously
+        set({ tooltipFields: newFields });
         storageService.updateSettings({ tooltipFields: newFields });
       },
 

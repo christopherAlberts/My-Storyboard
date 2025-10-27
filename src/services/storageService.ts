@@ -277,6 +277,7 @@ class StorageService {
         locationRecognitionEnabled: true,
         locationNameCapitalization: 'uppercase',
         tooltipFields: {
+          // Character fields
           description: true,
           role: true,
           occupation: true,
@@ -289,6 +290,14 @@ class StorageService {
           motivation: false,
           fears: false,
           goals: false,
+          // Location fields
+          type: false,
+          atmosphere: false,
+          significance: false,
+          climate: false,
+          population: false,
+          history: false,
+          culture: false,
         },
       },
     };
