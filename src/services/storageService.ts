@@ -221,7 +221,27 @@ class StorageService {
 
   // Initialize with data from Google Drive
   async initialize(data: ProjectData): Promise<void> {
-    this.data = data;
+    // Merge settings from loaded data with defaults to ensure all fields exist
+    const defaultSettings = this.getDefaultData().settings;
+    const loadedSettings = data.settings || {};
+    
+    // Merge loaded settings with defaults, prioritizing loaded settings
+    this.data = {
+      ...data,
+      settings: {
+        ...defaultSettings,
+        ...loadedSettings,
+        // Ensure tooltipFields are properly merged (not replaced)
+        tooltipFields: {
+          ...defaultSettings.tooltipFields,
+          ...(loadedSettings.tooltipFields || {}),
+        },
+      },
+    };
+    
+    console.log('📥 Initialized project with settings:', this.data.settings);
+    console.log('📥 Tooltip fields loaded:', this.data.settings.tooltipFields);
+    
     this.isInitialized = true;
     this.notifyListeners();
   }

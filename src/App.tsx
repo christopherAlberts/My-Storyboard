@@ -85,6 +85,14 @@ function App() {
       console.log('💾 Initializing storage service with Google Drive data...');
       await storageService.initialize(projectData);
       console.log('✅ Project loaded from Google Drive with', documents.length, 'documents');
+      
+      // Sync settings from storage to app store after project loads
+      const loadedSettings = storageService.getSettings();
+      console.log('📥 Loading settings into app store:', loadedSettings);
+      const { setTheme, setTooltipFields } = useAppStore.getState();
+      setTheme(loadedSettings.theme);
+      setTooltipFields(loadedSettings.tooltipFields);
+      console.log('✅ Settings synced to app store');
       setLoadingProgress({ stage: 'Complete!', progress: 100 });
       
       // Small delay to show completion before hiding loader
@@ -163,6 +171,24 @@ function App() {
     const isDark = theme === 'dark';
     document.documentElement.classList.toggle('dark', isDark);
   }, [theme]);
+
+  // Sync settings from storage when project is loaded
+  useEffect(() => {
+    if (currentProjectFolderId && storageService.isReady()) {
+      const settings = storageService.getSettings();
+      console.log('🔄 Syncing settings from storage to store:', settings);
+      const { setTheme, setTooltipFields, setCharacterRecognitionEnabled, setLocationRecognitionEnabled, setCharacterNameCapitalization, setLocationNameCapitalization } = useAppStore.getState();
+      
+      setTheme(settings.theme);
+      setTooltipFields(settings.tooltipFields);
+      setCharacterRecognitionEnabled(settings.characterRecognitionEnabled);
+      setLocationRecognitionEnabled(settings.locationRecognitionEnabled);
+      setCharacterNameCapitalization(settings.characterNameCapitalization);
+      setLocationNameCapitalization(settings.locationNameCapitalization);
+      
+      console.log('✅ Settings synced to store');
+    }
+  }, [currentProjectFolderId]);
 
   // Show sign-in screen if not authenticated
   if (isInitializing) {
