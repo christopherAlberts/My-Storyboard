@@ -25,22 +25,56 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
   React.useEffect(() => {
     const handleScrollToCharacter = (event: any) => {
       const characterId = event.detail.characterId;
+      console.log('Scrolling to character:', characterId);
+      
       if (characterId) {
-        setHighlightedCharacterId(characterId);
+        // Convert to string for comparison (IDs might be strings or numbers)
+        const characterIdStr = String(characterId);
+        setHighlightedCharacterId(characterId as any);
         
-        // Scroll to the character element
+        // Scroll to the character element - try multiple selectors to handle both string and number IDs
         setTimeout(() => {
-          const element = document.querySelector(`[data-character-id="${characterId}"]`);
+          let element = document.querySelector(`[data-character-id="${characterIdStr}"]`);
+          
+          // If not found, try without quotes (for numeric IDs)
+          if (!element) {
+            element = document.querySelector(`[data-character-id=${characterIdStr}]`);
+          }
+          
+          // If still not found, try finding by comparing IDs
+          if (!element) {
+            const allCharacterElements = document.querySelectorAll('[data-character-id]');
+            for (const el of allCharacterElements) {
+              const elId = el.getAttribute('data-character-id');
+              if (elId === characterIdStr || elId === String(characterId)) {
+                element = el;
+                break;
+              }
+            }
+          }
+          
           if (element) {
+            console.log('Found character element, scrolling...');
             element.scrollIntoView({ behavior: 'smooth', block: 'center' });
             // Add highlight effect
             (element as HTMLElement).style.backgroundColor = 'rgba(59, 130, 246, 0.3)';
+            
+            // Find the character in the characters array and open it in edit mode
+            const character = characters.find(c => String(c.id) === characterIdStr);
+            if (character && !editingId) {
+              setTimeout(() => {
+                handleEdit(character);
+              }, 400); // Wait a bit for scroll to complete
+            }
+            
             setTimeout(() => {
               (element as HTMLElement).style.backgroundColor = '';
               setHighlightedCharacterId(null);
             }, 2000);
+          } else {
+            console.warn('Character element not found for ID:', characterIdStr);
           }
-        }, 100);
+        }, 200); // Increased delay to ensure table is rendered
       }
     };
 
@@ -48,7 +82,7 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
     return () => {
       window.removeEventListener('scroll-to-character', handleScrollToCharacter as EventListener);
     };
-  }, []);
+  }, [characters, editingId]); // Include characters and editingId to access handleEdit
 
   const handleEdit = (character: Character) => {
     setEditingId(character.id!);
@@ -150,7 +184,7 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
         <div className="flex items-center space-x-2">
           <input
             type="color"
-            value={editData.color || '#3B82F6'}
+            value={editData.color || '#FFB3BA'}
             onChange={(e) => {
               const newColor = e.target.value;
               handleChange('color', newColor);
@@ -159,7 +193,7 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
           />
           <input
             type="text"
-            value={editData.color || '#3B82F6'}
+            value={editData.color || '#FFB3BA'}
             onChange={(e) => {
               const newColor = e.target.value;
               if (/^#[0-9A-Fa-f]{6}$/.test(newColor) || newColor === '') {
@@ -167,7 +201,7 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
               }
             }}
             className="flex-1 form-input font-mono"
-            placeholder="#hex color (e.g., #3B82F6)"
+            placeholder="#hex color (e.g., #FFB3BA)"
           />
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

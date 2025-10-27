@@ -299,34 +299,6 @@ const ProjectFiles: React.FC = () => {
               </div>
             )}
           </div>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Characters</div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                {data.characters.length}
-              </div>
-            </div>
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Locations</div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                {data.locations.length}
-              </div>
-            </div>
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Plot Points</div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                {data.plotPoints.length}
-              </div>
-            </div>
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Chapters</div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                {data.chapters.length}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

@@ -458,10 +458,142 @@ class StorageService {
     return this.getData().characters.find(c => c.id === id);
   }
 
+  // Generate a pastel color that's unique from existing character colors
+  private generateUniquePastelColor(existingColors: string[]): string {
+    const MAX_ATTEMPTS = 200;
+    let attempts = 0;
+    
+    // Normalize color strings (remove any whitespace, ensure uppercase)
+    const normalizeColor = (color: string): string => {
+      return color.trim().toUpperCase().replace('#', '');
+    };
+    
+    // Pastel color generator - uses HSL with high lightness and saturation
+    const generatePastelColor = (): string => {
+      // Use multiple sources of randomness for better variety
+      const now = Date.now();
+      const random1 = Math.random();
+      const random2 = Math.random();
+      const random3 = Math.random();
+      
+      // Mix time-based and random values for better distribution
+      const timeRandom = (now % 10000) / 10000;
+      
+      // Generate HSL values for pastel colors with more variation
+      // Hue: 0-360 (full spectrum) - use all hues for variety
+      const hue = Math.floor((random1 * 0.7 + timeRandom * 0.3) * 360);
+      // Saturation: 25-75% (wider range for more variety)
+      const saturation = Math.floor(random2 * 50) + 25; // 25-75%
+      // Lightness: 65-90% (lighter pastels)
+      const lightness = Math.floor(random3 * 25) + 65; // 65-90%
+      
+      // Convert HSL to RGB
+      const h = hue / 360;
+      const s = saturation / 100;
+      const l = lightness / 100;
+      
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const x = c * (1 - Math.abs((h * 6) % 2 - 1));
+      const m = l - c / 2;
+      
+      let r = 0, g = 0, b = 0;
+      
+      const h6 = h * 6;
+      if (h6 < 1) {
+        r = c; g = x; b = 0;
+      } else if (h6 < 2) {
+        r = x; g = c; b = 0;
+      } else if (h6 < 3) {
+        r = 0; g = c; b = x;
+      } else if (h6 < 4) {
+        r = 0; g = x; b = c;
+      } else if (h6 < 5) {
+        r = x; g = 0; b = c;
+      } else {
+        r = c; g = 0; b = x;
+      }
+      
+      r = Math.round((r + m) * 255);
+      g = Math.round((g + m) * 255);
+      b = Math.round((b + m) * 255);
+      
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase();
+    };
+    
+    // Calculate color distance (Euclidean distance in RGB space)
+    const colorDistance = (color1: string, color2: string): number => {
+      try {
+        const hex1 = normalizeColor(color1);
+        const hex2 = normalizeColor(color2);
+        
+        if (hex1.length !== 6 || hex2.length !== 6) return 0;
+        
+        const r1 = parseInt(hex1.substring(0, 2), 16);
+        const g1 = parseInt(hex1.substring(2, 4), 16);
+        const b1 = parseInt(hex1.substring(4, 6), 16);
+        
+        const r2 = parseInt(hex2.substring(0, 2), 16);
+        const g2 = parseInt(hex2.substring(2, 4), 16);
+        const b2 = parseInt(hex2.substring(4, 6), 16);
+        
+        return Math.sqrt(Math.pow(r1 - r2, 2) + Math.pow(g1 - g2, 2) + Math.pow(b1 - b2, 2));
+      } catch (e) {
+        return 0;
+      }
+    };
+    
+    // Normalize existing colors
+    const normalizedExisting = existingColors
+      .filter(c => c && c.trim())
+      .map(c => normalizeColor(c));
+    
+    // Try to find a unique color
+    while (attempts < MAX_ATTEMPTS) {
+      const newColor = generatePastelColor();
+      const normalizedNew = normalizeColor(newColor);
+      
+      // Check if color is sufficiently different from existing colors
+      const isUnique = normalizedExisting.every(existingColor => {
+        if (!existingColor || existingColor.length !== 6) return true;
+        
+        // First check: exact match
+        if (normalizedNew === existingColor) return false;
+        
+        // Second check: distance threshold (lowered to 30 for better variety)
+        const distance = colorDistance(newColor, `#${existingColor}`);
+        return distance > 30;
+      });
+      
+      if (isUnique) {
+        console.log(`Generated unique pastel color: ${newColor} (attempt ${attempts + 1})`);
+        return newColor;
+      }
+      
+      attempts++;
+    }
+    
+    // If we couldn't find a unique color after max attempts, generate one anyway
+    // but ensure it's different from the most recent one
+    const fallbackColor = generatePastelColor();
+    console.log(`Generated fallback pastel color: ${fallbackColor} after ${attempts} attempts`);
+    return fallbackColor;
+  }
+
   async addCharacter(character: Omit<Character, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     const now = new Date().toISOString();
+    
+    // Generate unique pastel color if not provided
+    let characterColor = character.color;
+    if (!characterColor || characterColor === '' || characterColor === '#3B82F6' || characterColor === '#000000') {
+      const existingColors = this.getData().characters
+        .map(c => c.color)
+        .filter((c): c is string => !!c);
+      characterColor = this.generateUniquePastelColor(existingColors);
+    }
+    
     const newCharacter: Character = {
       ...character,
+      color: characterColor,
       id: this.generateId(),
       createdAt: now,
       updatedAt: now,

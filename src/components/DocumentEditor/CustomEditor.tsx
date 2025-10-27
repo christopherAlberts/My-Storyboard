@@ -17,7 +17,7 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
   const editorRef = useRef<HTMLDivElement>(null);
   const { characterRecognitionEnabled, characterNameCapitalization, toggleCharacterRecognition } = useAppStore();
   const [characters, setCharacters] = useState<Character[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const isProcessingRef = useRef(false);
   const [tooltipState, setTooltipState] = useState<{ character: Character; position: { x: number; y: number } } | null>(null);
   const [showTableOfContents, setShowTableOfContents] = useState(false);
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -27,6 +27,7 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
   useEffect(() => {
     const loadCharacters = async () => {
       const chars = await storageService.getCharacters();
+      console.log('Loaded characters:', chars.length, chars.map(c => ({ name: c.name, color: c.color })));
       setCharacters(chars);
     };
     
@@ -40,13 +41,6 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
     return () => {
       clearInterval(intervalId);
     };
-  }, []);
-
-  // Initialize content
-  useEffect(() => {
-    if (editorRef.current && content !== undefined) {
-      editorRef.current.innerHTML = content || '<p><br></p>';
-    }
   }, []);
 
   // Remove highlighting spans from HTML
@@ -65,36 +59,46 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
     return temp.innerHTML;
   };
 
-  // Update content when prop changes from outside
+  // Initialize editor content on mount
   useEffect(() => {
-    if (editorRef.current && content !== undefined) {
-      const currentContent = removeHighlights(editorRef.current.innerHTML);
-      // Always update if the content prop is different (user switched documents)
-      if (currentContent !== content) {
-        editorRef.current.innerHTML = content || '<p><br></p>';
-        // Reapply highlighting after content change
-        setTimeout(() => applyHighlighting(), 100);
-      }
+    if (editorRef.current && content !== undefined && editorRef.current.innerHTML !== content) {
+      editorRef.current.innerHTML = content || '<p><br></p>';
     }
-  }, [content]);
+  }, []); // Only run on mount
 
   const handleContentChange = useDebouncedCallback(() => {
-    if (editorRef.current && !isProcessing) {
+    if (editorRef.current && !isProcessingRef.current) {
       // Remove highlighting spans before saving - save clean content
       const cleanContent = removeHighlights(editorRef.current.innerHTML);
       onChange(cleanContent);
     }
   }, 300);
 
-  const applyHighlighting = () => {
-    if (!editorRef.current || isProcessing || !characterRecognitionEnabled) return;
-    
-    // Only apply highlighting when editor is NOT focused
-    if (document.activeElement === editorRef.current) {
+  const applyHighlighting = React.useCallback(() => {
+    if (!editorRef.current || isProcessingRef.current || !characterRecognitionEnabled) {
+      console.log('Highlighting skipped:', { 
+        hasEditor: !!editorRef.current, 
+        isProcessing: isProcessingRef.current, 
+        enabled: characterRecognitionEnabled 
+      });
       return;
     }
 
-    setIsProcessing(true);
+    if (characters.length === 0) {
+      console.log('No characters loaded');
+      return;
+    }
+
+    // Check if editor has content
+    const editor = editorRef.current;
+    const text = editor.textContent || '';
+    if (!text.trim()) {
+      console.log('Editor has no text content');
+      return;
+    }
+
+    console.log('Applying highlighting for', characters.length, 'characters in text:', text.substring(0, 50));
+    isProcessingRef.current = true;
 
     try {
       const editor = editorRef.current;
@@ -114,7 +118,7 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
       // Get the plain text content
       const text = editor.textContent || '';
       if (!text.trim()) {
-        setIsProcessing(false);
+        isProcessingRef.current = false;
         return;
       }
 
@@ -128,12 +132,12 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
       });
 
       if (!characterRecognitionEnabled) {
-        setIsProcessing(false);
+        isProcessingRef.current = false;
         return;
       }
 
       if (characters.length === 0) {
-        setIsProcessing(false);
+        isProcessingRef.current = false;
         return;
       }
       
@@ -165,7 +169,11 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
         const allMatches: MatchInfo[] = [];
         
         characters.forEach(character => {
-          if (!character.color || !character.name) return;
+          // Only require name, color is optional (will use default if missing)
+          if (!character.name) {
+            console.log('Skipping character without name:', character);
+            return;
+          }
 
           // Use word boundary to match ONLY exact character name as a complete word
           // This ensures "tom" matches but "tomy" doesn't
@@ -177,6 +185,9 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
           // Use a map to avoid duplicate matches
           const matchMap = new Map<number, MatchInfo>();
           let match;
+          
+          // Reset regex lastIndex to ensure fresh search
+          regex.lastIndex = 0;
           
           while ((match = regex.exec(text)) !== null) {
             // Only add if we get an exact word boundary match
@@ -220,7 +231,15 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
           }
         }
 
-        if (filteredMatches.length === 0) return;
+        if (filteredMatches.length === 0) {
+          // Only log if we actually had text to search
+          if (text.trim().length > 0) {
+            console.log('No matches found in text node:', text.substring(0, 50));
+          }
+          return;
+        }
+        
+        console.log(`Found ${filteredMatches.length} matches in text: "${text.substring(0, 50)}"`);
 
         const fragment = document.createDocumentFragment();
         let lastIndex = 0;
@@ -235,8 +254,9 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
           // Add highlighted character name
           const span = document.createElement('span');
           span.className = 'character-highlight';
-          // Set inline styles
-          span.setAttribute('style', `color: ${char.color}; text-decoration: underline; cursor: pointer;`);
+          // Set inline styles - use character color or default
+          const highlightColor = char.color || '#0066cc';
+          span.setAttribute('style', `color: ${highlightColor}; text-decoration: underline; cursor: pointer;`);
           span.setAttribute('data-character-id', char.id?.toString() || '');
           span.setAttribute('data-character-name', char.name);
           span.textContent = text.substring(start, end);
@@ -273,20 +293,45 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
         
         // Add click handler for character highlights in the document editor only
         newSpan.addEventListener('click', (e) => {
-          const target = e.target as HTMLElement;
-          // Don't interfere with form inputs or buttons anywhere in the document
-          if (!target.closest('input') && !target.closest('button') && !target.closest('textarea') && !target.closest('select')) {
-            e.stopPropagation();
-            const { openWindow, updateDatabaseViewState } = useAppStore.getState();
-            openWindow('database', 'Database');
-            setTimeout(() => {
-              updateDatabaseViewState({ activeTable: 'characters' });
-              const customEvent = new CustomEvent('select-character', { 
-                detail: { characterId } 
-              });
-              window.dispatchEvent(customEvent);
-            }, 100);
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const clickedSpan = e.currentTarget as HTMLElement;
+          const clickedCharacterId = clickedSpan.getAttribute('data-character-id') || '';
+          
+          if (!clickedCharacterId) {
+            console.warn('Character ID not found on clicked element');
+            return;
           }
+          
+          console.log('Opening database for character:', clickedCharacterId);
+          
+          // Get store actions
+          const { openWindow, updateDatabaseViewState } = useAppStore.getState();
+          
+          // Open database window
+          openWindow('database', 'Database');
+          
+          // Update database view state to show characters tab
+          // Character IDs are strings, but selectedItem expects number | null
+          // We'll just set the active table and let the event handler handle selection
+          updateDatabaseViewState({ activeTable: 'characters', selectedItem: null });
+          
+          // Dispatch select-character event (will be handled by DatabaseView)
+          setTimeout(() => {
+            const selectEvent = new CustomEvent('select-character', { 
+              detail: { characterId: clickedCharacterId } 
+            });
+            window.dispatchEvent(selectEvent);
+            
+            // Also dispatch scroll-to-character event after a delay to ensure table is rendered
+            setTimeout(() => {
+              const scrollEvent = new CustomEvent('scroll-to-character', { 
+                detail: { characterId: clickedCharacterId } 
+              });
+              window.dispatchEvent(scrollEvent);
+            }, 300);
+          }, 100);
         });
         
         // Add hover handler for tooltips
@@ -352,17 +397,59 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
     } catch (err) {
       console.error('Error applying highlighting:', err);
     } finally {
-      setIsProcessing(false);
+      isProcessingRef.current = false;
     }
-  };
+  }, [characterRecognitionEnabled, characters, characterNameCapitalization]);
 
-  // Apply highlighting when recognition is toggled
+  // Apply highlighting when recognition is toggled or characters change
   useEffect(() => {
-    if (characterRecognitionEnabled && editorRef.current) {
-      // Apply highlighting immediately when recognition is enabled
-      applyHighlighting();
+    if (characterRecognitionEnabled && editorRef.current && characters.length > 0) {
+      // Apply highlighting with a delay to ensure editor is ready
+      const timeoutId = setTimeout(() => {
+        if (!isProcessingRef.current) {
+          // Apply highlighting even if editor is focused - needed for initial load
+          const wasFocused = document.activeElement === editorRef.current;
+          applyHighlighting();
+          // If editor was focused, apply again after a short delay when it might be unfocused
+          if (wasFocused) {
+            setTimeout(() => {
+              if (!isProcessingRef.current && document.activeElement !== editorRef.current) {
+                applyHighlighting();
+              }
+            }, 500);
+          }
+        }
+      }, 200);
+      
+      return () => clearTimeout(timeoutId);
+    } else if (!characterRecognitionEnabled && editorRef.current) {
+      // Remove all highlights when recognition is disabled
+      editorRef.current.querySelectorAll('.character-highlight').forEach(span => {
+        const parent = span.parentNode;
+        if (parent) {
+          parent.replaceChild(document.createTextNode(span.textContent || ''), span);
+          parent.normalize();
+        }
+      });
     }
-  }, [characterRecognitionEnabled]);
+  }, [characterRecognitionEnabled, characters, characterNameCapitalization, applyHighlighting]);
+
+  // Initialize content and update when prop changes from outside
+  useEffect(() => {
+    if (editorRef.current && content !== undefined) {
+      const currentContent = removeHighlights(editorRef.current.innerHTML);
+      // Always update if the content prop is different (user switched documents)
+      if (currentContent !== content) {
+        editorRef.current.innerHTML = content || '<p><br></p>';
+        // Reapply highlighting after content change
+        setTimeout(() => {
+          if (characterRecognitionEnabled && characters.length > 0) {
+            applyHighlighting();
+          }
+        }, 100);
+      }
+    }
+  }, [content, characterRecognitionEnabled, characters, applyHighlighting]);
 
   const handleInput = () => {
     handleContentChange();
@@ -373,7 +460,7 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
     }
     
     highlightTimeoutRef.current = setTimeout(() => {
-      if (characterRecognitionEnabled && document.activeElement !== editorRef.current) {
+      if (characterRecognitionEnabled && document.activeElement !== editorRef.current && characters.length > 0) {
         applyHighlighting();
       }
     }, 1000);
@@ -385,7 +472,7 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
     if (!editor) return;
     
     const handleBlur = () => {
-      if (characterRecognitionEnabled) {
+      if (characterRecognitionEnabled && characters.length > 0) {
         // Apply highlighting when editor loses focus
         setTimeout(() => {
           applyHighlighting();
@@ -395,7 +482,7 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
     
     editor.addEventListener('blur', handleBlur);
     return () => editor.removeEventListener('blur', handleBlur);
-  }, [characterRecognitionEnabled]);
+  }, [characterRecognitionEnabled, characters, applyHighlighting]);
   
   // Cleanup on unmount
   useEffect(() => {
