@@ -106,11 +106,21 @@ Now you only need the OAuth Client ID. The OAuth flow handles authentication sec
 - Verify the client ID is correct
 - Check browser console for detailed error messages
 
-**"Sign-in timeout" error:**
-- Check your browser console for popup blockers
+**"Sign-in timeout" or "Popup blocked" error:**
+- **Allow popups**: Your browser may block the authorization popup
+  - Look for a popup blocker icon in your browser's address bar (usually looks like a shield or crossed-out window)
+  - Click it and select "Always allow popups from this site"
+  - Refresh the page and try again
 - Make sure JavaScript is enabled
-- Try a different browser
+- Try a different browser if the issue persists
 - Clear browser cache and cookies
+
+**"The given origin is not allowed" error:**
+- Check that your current URL (including port) is in the "Authorized JavaScript origins" list
+  - Example: If you're running on `http://localhost:5174`, make sure that exact URL is added
+- Click "Save" in Google Cloud Console after adding origins
+- Wait 2-3 minutes for changes to propagate
+- Try refreshing the page
 
 **Still stuck?**
 1. Check browser console for errors (F12 → Console tab)

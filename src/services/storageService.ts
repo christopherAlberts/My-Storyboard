@@ -195,9 +195,12 @@ class StorageService {
   private listeners: Array<() => void> = [];
   private saveDebounceTimer: NodeJS.Timeout | null = null;
   private isSaving: boolean = false;
+  private isInitialized: boolean = false;
+  private saveStatusListeners: Array<(status: 'saving' | 'saved' | 'error') => void> = [];
+  private lastSaveStatus: 'saving' | 'saved' | 'error' = 'saved';
 
   private constructor() {
-    this.loadData();
+    // Don't auto-load - wait for project to be selected
   }
 
   static getInstance(): StorageService {
@@ -211,20 +214,41 @@ class StorageService {
     return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private loadData(): void {
-    try {
-      const json = localStorage.getItem('storyboard-project-data');
-      if (json) {
-        this.data = JSON.parse(json);
-      } else {
-        this.data = this.getDefaultData();
-        this.saveData();
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-      this.data = this.getDefaultData();
-      this.saveData();
+  // Initialize with data from Google Drive
+  async initialize(data: ProjectData): Promise<void> {
+    this.data = data;
+    this.isInitialized = true;
+    this.notifyListeners();
+  }
+
+  // Check if service is initialized with project data
+  isReady(): boolean {
+    return this.isInitialized && this.data !== null;
+  }
+
+  // Subscribe to save status changes
+  onSaveStatusChange(listener: (status: 'saving' | 'saved' | 'error') => void): () => void {
+    this.saveStatusListeners.push(listener);
+    // Immediately call with current status
+    listener(this.lastSaveStatus);
+    return () => {
+      this.saveStatusListeners = this.saveStatusListeners.filter(l => l !== listener);
+    };
+  }
+
+  private updateSaveStatus(status: 'saving' | 'saved' | 'error'): void {
+    this.lastSaveStatus = status;
+    this.saveStatusListeners.forEach(listener => listener(status));
+    
+    // Also update lastModified when saved
+    if (status === 'saved' && this.data) {
+      this.data.lastModified = new Date().toISOString();
+      this.notifyListeners();
     }
+  }
+
+  getSaveStatus(): 'saving' | 'saved' | 'error' {
+    return this.lastSaveStatus;
   }
 
   private getDefaultData(): ProjectData {
@@ -269,24 +293,31 @@ class StorageService {
     this.data.lastModified = new Date().toISOString();
     
     try {
-      // Save to localStorage as backup
-      localStorage.setItem('storyboard-project-data', JSON.stringify(this.data, null, 2));
+      // Save directly to Google Drive (primary storage)
+      const folderId = localStorage.getItem('current_project_folder_id');
+      const isAuthenticated = localStorage.getItem('google_authenticated') === 'true';
       
-      // Debounce auto-save to Google Drive to prevent multiple concurrent saves
-      if (this.saveDebounceTimer) {
-        clearTimeout(this.saveDebounceTimer);
-      }
-      
-      this.saveDebounceTimer = setTimeout(async () => {
-        if (!this.isSaving) {
-          this.isSaving = true;
-          try {
-            await this.autoSaveToGoogleDrive();
-          } finally {
-            this.isSaving = false;
-          }
+      if (folderId && isAuthenticated && folderId !== 'placeholder') {
+        // Debounce saves to prevent multiple concurrent API calls
+        if (this.saveDebounceTimer) {
+          clearTimeout(this.saveDebounceTimer);
         }
-      }, 500); // Wait 500ms before saving to batch multiple rapid changes
+        
+        this.saveDebounceTimer = setTimeout(async () => {
+          if (!this.isSaving) {
+            this.isSaving = true;
+            this.updateSaveStatus('saving');
+            try {
+              await this.saveToGoogleDrive();
+              this.updateSaveStatus('saved');
+            } catch (error) {
+              this.updateSaveStatus('error');
+            } finally {
+              this.isSaving = false;
+            }
+          }
+        }, 200); // Fast auto-save like Google Docs (200ms debounce)
+      }
       
       this.notifyListeners();
     } catch (error) {
@@ -294,60 +325,46 @@ class StorageService {
     }
   }
 
-  private async autoSaveToGoogleDrive(): Promise<void> {
+  private async saveToGoogleDrive(): Promise<void> {
     try {
       const folderId = localStorage.getItem('current_project_folder_id');
       const isAuthenticated = localStorage.getItem('google_authenticated') === 'true';
       
-      console.log('Auto-save check:', { folderId, isAuthenticated });
-      
-      if (folderId && isAuthenticated && folderId !== 'placeholder') {
-        const { googleDriveService } = await import('./googleDriveService');
-        
-        // Ensure Google Drive is initialized
-        console.log('🔧 Initializing Google Drive service...');
-        await googleDriveService.initialize();
-        console.log('✅ Google Drive initialized');
-        
-        console.log('Saving project data to Google Drive:', {
-          folderId,
-          projectName: this.data?.projectName,
-          documentCount: this.data?.documents.length
-        });
-        
-        // Save project metadata (without documents)
-        console.log('💾 Saving project metadata...');
-        await googleDriveService.saveProjectToFolder(folderId, this.data);
-        console.log('✅ Project metadata saved');
-        
-        // Save each document as a separate file
-        console.log(`📄 Saving ${this.data?.documents.length || 0} documents...`);
-        const documentsToSave = [...(this.data?.documents || [])]; // Create a copy to avoid modification during iteration
-        
-        for (let i = 0; i < documentsToSave.length; i++) {
-          const doc = documentsToSave[i];
-          try {
-            console.log(`  Saving document ${i + 1}/${documentsToSave.length}: "${doc.title}" (ID: ${doc.id})`);
-            await googleDriveService.saveDocumentToFolder(folderId, doc);
-            console.log(`  ✅ Saved: "${doc.title}"`);
-          } catch (docError) {
-            console.error(`  ❌ Failed to save document "${doc.title}" (ID: ${doc.id}):`, docError);
-            // Continue with other documents even if one fails
-          }
-        }
-        
-        console.log('✅ Successfully auto-saved to Google Drive');
-      } else {
-        console.log('⚠️ Auto-save skipped:', { 
-          hasFolderId: !!folderId, 
-          isAuthenticated,
-          folderIdValue: folderId 
-        });
+      if (!folderId || !isAuthenticated || folderId === 'placeholder') {
+        console.warn('⚠️ Cannot save: No project folder selected or not authenticated');
+        return;
       }
+      
+      const { googleDriveService } = await import('./googleDriveService');
+      
+      // Ensure Google Drive is initialized
+      await googleDriveService.initialize();
+      
+      console.log('💾 Saving project data to Google Drive:', {
+        folderId,
+        projectName: this.data?.projectName,
+        documentCount: this.data?.documents.length
+      });
+      
+      // Save project metadata (without documents)
+      await googleDriveService.saveProjectToFolder(folderId, this.data, true); // Force save - no conflict checks needed
+      
+      // Save each document as a separate file
+      const documentsToSave = [...(this.data?.documents || [])];
+      
+      for (const doc of documentsToSave) {
+        try {
+          await googleDriveService.saveDocumentToFolder(folderId, doc);
+        } catch (docError) {
+          console.error(`❌ Failed to save document "${doc.title}":`, docError);
+          // Continue with other documents even if one fails
+        }
+      }
+      
+      console.log('✅ Successfully saved to Google Drive');
     } catch (error) {
-      console.error('❌ Auto-save to Google Drive failed:', error);
-      console.error('Error details:', error);
-      // Don't throw - this is a background sync that shouldn't block the UI
+      console.error('❌ Save to Google Drive failed:', error);
+      // Don't throw - this is background save
     }
   }
 
@@ -389,9 +406,11 @@ class StorageService {
   // Get all data
   getData(): ProjectData {
     if (!this.data) {
-      this.loadData();
+      // Return default data if not initialized (shouldn't happen in normal flow)
+      console.warn('⚠️ StorageService not initialized - returning default data');
+      return this.getDefaultData();
     }
-    return this.data!;
+    return this.data;
   }
 
   // Get file info for project files view
@@ -583,16 +602,13 @@ class StorageService {
     console.log('📄 Adding new document:', { title: document.title });
     this.getData().documents.push(newDocument);
     await this.saveData();
-    // saveData already calls autoSaveToGoogleDrive, so we don't need to call it again
+    
+    // Also immediately save the new document to Google Drive
+    await this.saveDocumentToDrive(newDocument.id!);
     
     return newDocument.id!;
   }
 
-  // Note: autoSyncToGoogleDrive is now just an alias for backward compatibility
-  // This method redirects to autoSaveToGoogleDrive
-  private async autoSyncToGoogleDrive() {
-    await this.autoSaveToGoogleDrive();
-  }
 
   async updateDocument(id: string, updates: Partial<Document>): Promise<void> {
     const doc = this.getData().documents.find(d => d.id === id);
@@ -600,7 +616,37 @@ class StorageService {
       console.log('📝 Updating document:', { id, title: updates.title });
       Object.assign(doc, updates, { updatedAt: new Date().toISOString() });
       await this.saveData();
-      // saveData already calls autoSaveToGoogleDrive, so we don't need to call it again
+      
+      // Also immediately save this specific document to Google Drive
+      await this.saveDocumentToDrive(id);
+    } else {
+      console.error('❌ Document not found for update:', id);
+    }
+  }
+  
+  // Save a specific document to Google Drive immediately
+  private async saveDocumentToDrive(documentId: string): Promise<void> {
+    try {
+      const folderId = localStorage.getItem('current_project_folder_id');
+      const isAuthenticated = localStorage.getItem('google_authenticated') === 'true';
+      
+      if (!folderId || !isAuthenticated || folderId === 'placeholder') {
+        return; // Silent fail - will be saved by debounced save
+      }
+      
+      const doc = this.getData().documents.find(d => d.id === documentId);
+      if (!doc) {
+        console.warn('⚠️ Document not found for direct save:', documentId);
+        return;
+      }
+      
+      const { googleDriveService } = await import('./googleDriveService');
+      await googleDriveService.initialize();
+      await googleDriveService.saveDocumentToFolder(folderId, doc);
+      console.log('✅ Document saved directly to Google Drive:', doc.title);
+    } catch (error) {
+      console.error('❌ Failed to save document directly:', error);
+      // Don't throw - will be saved by debounced save
     }
   }
 

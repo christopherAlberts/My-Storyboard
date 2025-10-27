@@ -24,6 +24,7 @@ export interface DriveFile {
   name: string;
   mimeType: string;
   parents?: string[];
+  modifiedTime?: string;
 }
 
 export interface ProjectMetadata {
@@ -431,7 +432,7 @@ class GoogleDriveService {
     try {
       const response = await gapi.client.drive.files.list({
         q: `'${folderId}' in parents and trashed=false`,
-        fields: 'files(id, name, mimeType)',
+        fields: 'files(id, name, mimeType, modifiedTime)',
       });
 
       return response.result.files as DriveFile[];
@@ -441,8 +442,23 @@ class GoogleDriveService {
     }
   }
 
+  // Get file metadata including modified time
+  async getFileMetadata(fileId: string): Promise<{ modifiedTime: string }> {
+    try {
+      const response = await gapi.client.drive.files.get({
+        fileId,
+        fields: 'modifiedTime',
+      });
+
+      return { modifiedTime: response.result.modifiedTime };
+    } catch (error) {
+      console.error('Error getting file metadata:', error);
+      throw error;
+    }
+  }
+
   // Sync entire project to Google Drive
-  async syncProject(projectName: string, projectData: any): Promise<ProjectMetadata> {
+  async syncProject(projectName: string, projectData: any, force: boolean = false): Promise<ProjectMetadata> {
     if (!this.isAuthenticated()) {
       throw new Error('Not authenticated with Google Drive');
     }
@@ -466,6 +482,7 @@ class GoogleDriveService {
       }
     } catch (error) {
       console.error('Error syncing project data:', error);
+      throw error;
     }
 
     return {
@@ -559,14 +576,52 @@ class GoogleDriveService {
     return JSON.parse(content);
   }
 
-  // Save project data to a specific folder
-  async saveProjectToFolder(folderId: string, projectData: any): Promise<void> {
+  // Check if Drive version is newer than local
+  async isDriveNewerThanLocal(folderId: string, localLastModified: string): Promise<{ isNewer: boolean; driveModified?: string }> {
+    try {
+      const files = await this.listFiles(folderId);
+      const dataFile = files.find((f) => f.name.endsWith('_data.json'));
+      
+      if (!dataFile || !dataFile.modifiedTime) {
+        return { isNewer: false };
+      }
+
+      const driveTime = new Date(dataFile.modifiedTime).getTime();
+      const localTime = new Date(localLastModified).getTime();
+      
+      return {
+        isNewer: driveTime > localTime,
+        driveModified: dataFile.modifiedTime
+      };
+    } catch (error) {
+      console.error('Error checking Drive timestamp:', error);
+      return { isNewer: false };
+    }
+  }
+
+  // Save project data to a specific folder with conflict detection
+  async saveProjectToFolder(folderId: string, projectData: any, force: boolean = false): Promise<{ saved: boolean; conflict?: boolean; driveModified?: string }> {
     if (!this.isAuthenticated()) {
       throw new Error('Not authenticated with Google Drive');
     }
 
     const files = await this.listFiles(folderId);
     const existingFile = files.find((f) => f.name.endsWith('_data.json'));
+
+    // Check for conflicts if file exists
+    if (existingFile && existingFile.modifiedTime && !force) {
+      const driveTime = new Date(existingFile.modifiedTime).getTime();
+      const localTime = new Date(projectData.lastModified || 0).getTime();
+      
+      if (driveTime > localTime) {
+        console.warn('⚠️ Drive version is newer than local. Save blocked to prevent data loss.');
+        return {
+          saved: false,
+          conflict: true,
+          driveModified: existingFile.modifiedTime
+        };
+      }
+    }
 
     const fileName = existingFile ? existingFile.name : `${projectData.projectName || 'project'}_data.json`;
     
@@ -582,6 +637,8 @@ class GoogleDriveService {
     } else {
       await this.uploadFile(folderId, fileName, content);
     }
+
+    return { saved: true };
   }
 
   // Save a document as a separate file in the project folder

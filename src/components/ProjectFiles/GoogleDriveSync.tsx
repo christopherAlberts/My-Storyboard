@@ -98,23 +98,40 @@ const GoogleDriveSync: React.FC<GoogleDriveSyncProps> = ({ projectName = 'My Sto
 
     setIsLoading(true);
     setStatus('syncing');
-    setStatusMessage('Uploading project to Google Drive...');
+    setStatusMessage('Saving to Google Drive...');
 
     try {
       const projectData = storageService.getData();
-      const result = await googleDriveService.syncProject(projectName, projectData);
+      const folderId = localStorage.getItem('current_project_folder_id');
       
-      setLastSynced(new Date(result.lastSynced));
-      setStatusMessage('Project uploaded successfully!');
+      if (!folderId || folderId === 'placeholder') {
+        setStatusMessage('No project selected');
+        setStatus('error');
+        setTimeout(() => setStatus('idle'), 3000);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Force save everything to Google Drive
+      await googleDriveService.saveProjectToFolder(folderId, projectData, true);
+      
+      // Save all documents
+      for (const doc of projectData.documents) {
+        try {
+          await googleDriveService.saveDocumentToFolder(folderId, doc);
+        } catch (error) {
+          console.error(`Failed to save document ${doc.title}:`, error);
+        }
+      }
+      
+      setLastSynced(new Date());
+      setStatusMessage('Successfully saved to Google Drive!');
       setStatus('success');
-      
-      // Store sync metadata
-      localStorage.setItem('googleDriveSync', JSON.stringify(result));
       
       setTimeout(() => setStatus('idle'), 2000);
     } catch (error) {
-      console.error('Error uploading project:', error);
-      setStatusMessage('Failed to upload project');
+      console.error('Error saving to Google Drive:', error);
+      setStatusMessage('Failed to save to Google Drive');
       setStatus('error');
       setTimeout(() => setStatus('idle'), 3000);
     } finally {
@@ -130,21 +147,34 @@ const GoogleDriveSync: React.FC<GoogleDriveSyncProps> = ({ projectName = 'My Sto
 
     setIsLoading(true);
     setStatus('syncing');
-    setStatusMessage('Downloading project from Google Drive...');
+    setStatusMessage('Loading project from Google Drive...');
 
     try {
-      const projectData = await googleDriveService.downloadProject(projectName);
+      const folderId = localStorage.getItem('current_project_folder_id');
       
-      // Import the downloaded data
-      storageService.importData(JSON.stringify(projectData));
+      if (!folderId || folderId === 'placeholder') {
+        setStatusMessage('No project selected');
+        setStatus('error');
+        setTimeout(() => setStatus('idle'), 3000);
+        setIsLoading(false);
+        return;
+      }
       
-      setStatusMessage('Project downloaded successfully!');
+      // Load project data from Google Drive
+      const projectData = await googleDriveService.loadProjectFromFolder(folderId);
+      const documents = await googleDriveService.loadDocumentsFromFolder(folderId);
+      projectData.documents = documents;
+      
+      // Initialize storage service with Google Drive data
+      await storageService.initialize(projectData);
+      
+      setStatusMessage('Project loaded successfully!');
       setStatus('success');
       
       setTimeout(() => setStatus('idle'), 2000);
     } catch (error) {
-      console.error('Error downloading project:', error);
-      setStatusMessage('Failed to download project');
+      console.error('Error loading project:', error);
+      setStatusMessage('Failed to load project');
       setStatus('error');
       setTimeout(() => setStatus('idle'), 3000);
     } finally {
@@ -245,38 +275,10 @@ const GoogleDriveSync: React.FC<GoogleDriveSyncProps> = ({ projectName = 'My Sto
                   <span>Disconnect</span>
                 </button>
 
-                <div className="space-y-2">
-                  <button
-                    onClick={handleSync}
-                    disabled={isLoading}
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {getStatusIcon()}
-                    <span>
-                      {status === 'syncing' ? 'Syncing...' : 
-                       status === 'success' ? 'Synced!' : 
-                       'Sync to Google Drive'}
-                    </span>
-                  </button>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={handleUploadProject}
-                      disabled={isLoading}
-                      className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Upload className="w-4 h-4" />
-                      <span>Upload</span>
-                    </button>
-                    <button
-                      onClick={handleDownloadProject}
-                      disabled={isLoading}
-                      className="flex items-center justify-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Download</span>
-                    </button>
-                  </div>
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                  <p className="text-sm text-green-800 dark:text-green-200 text-center">
+                    ✅ Auto-save enabled - All changes save automatically to Google Drive
+                  </p>
                 </div>
               </>
             )}

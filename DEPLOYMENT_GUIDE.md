@@ -78,3 +78,4 @@ Your users will:
 - **Each user's data is private** - they only see their own projects
 - **No backend needed** - Everything runs client-side with Google Drive API
 - **Completely secure** - Google handles all authentication
+

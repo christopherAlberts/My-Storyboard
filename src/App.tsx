@@ -41,20 +41,13 @@ function App() {
       setIsAuthenticated(isAuth);
       
       if (isAuth) {
-        // Check if project folder is set up
-        const folderId = localStorage.getItem('current_project_folder_id');
-        console.log('📁 Project folder ID:', folderId);
-        
-        if (folderId) {
-          setCurrentProjectFolderId(folderId);
-          // Load project data from Google Drive
-          console.log('📥 Loading project from Drive...');
-          await loadProjectFromDrive(folderId);
-          console.log('✅ Project loaded');
-        } else {
-          console.log('⚠️ No project folder selected, showing project selection');
-          setShowProjectSelection(true);
-        }
+        // ALWAYS show project selection - never auto-load
+        console.log('🔐 User authenticated - showing project selection');
+        setShowProjectSelection(true);
+        // Clear any previously stored project to force selection
+        localStorage.removeItem('current_project_folder_id');
+        localStorage.removeItem('current_project_name');
+        setCurrentProjectFolderId(null);
       } else {
         console.log('⚠️ Not fully authenticated, user needs to sign in');
       }
@@ -71,6 +64,7 @@ function App() {
   const loadProjectFromDrive = async (folderId: string) => {
     try {
       console.log('📥 Loading project data from folder:', folderId);
+      
       const projectData = await googleDriveService.loadProjectFromFolder(folderId);
       console.log('✅ Project data loaded:', projectData.projectName);
       
@@ -82,8 +76,8 @@ function App() {
       // Merge documents into project data
       projectData.documents = documents;
       
-      console.log('💾 Importing data to storage service...');
-      storageService.importData(JSON.stringify(projectData));
+      console.log('💾 Initializing storage service with Google Drive data...');
+      await storageService.initialize(projectData);
       console.log('✅ Project loaded from Google Drive with', documents.length, 'documents');
     } catch (error) {
       console.error('❌ Error loading project from Google Drive:', error);
@@ -99,7 +93,7 @@ function App() {
       localStorage.setItem('current_project_folder_id', folderId);
       localStorage.setItem('current_project_name', folderName);
       
-      // Load project data
+      // Load project data from Google Drive
       await loadProjectFromDrive(folderId);
       
       setShowProjectSelection(false);
@@ -118,7 +112,7 @@ function App() {
       const defaultData = storageService.getData();
       defaultData.projectName = projectName;
       
-      await googleDriveService.saveProjectToFolder(folderId, defaultData);
+      await googleDriveService.saveProjectToFolder(folderId, defaultData, true); // Force save for new project
       
       // Set as current project
       await handleSelectProject(folderId, projectName);
@@ -173,7 +167,7 @@ function App() {
     return <SimpleSignIn />;
   }
 
-  // Show project selection modal if user is authenticated but hasn't selected a project
+  // ALWAYS show project selection modal when authenticated - user must choose a project
   if (showProjectSelection || !currentProjectFolderId) {
     return (
       <ProjectSelectionModal 
@@ -184,6 +178,7 @@ function App() {
     );
   }
 
+  // Main app - only shown when user has selected a project
   return (
     <>
       <div className={`h-screen w-screen overflow-hidden bg-white dark:bg-gray-900 ${theme === 'dark' ? 'dark' : ''}`}>

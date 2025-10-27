@@ -3,11 +3,12 @@ import { useAppStore } from '../../store/useAppStore';
 import { storageService, Document } from '../../services/storageService';
 import DocumentList from './DocumentList';
 import CustomEditor from './CustomEditor';
-import { FileText, FolderOpen, Save } from 'lucide-react';
+import { FileText, FolderOpen, Loader, CheckCircle, AlertCircle } from 'lucide-react';
 
 const DocumentEditor: React.FC = () => {
   const { documentState, updateDocumentState, loadDocument, createNewDocument } = useAppStore();
   const [showDocumentList, setShowDocumentList] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'saving' | 'saved' | 'error'>('saved');
 
   // Don't auto-create a document - user must manually create or open one
 
@@ -21,93 +22,63 @@ const DocumentEditor: React.FC = () => {
     setShowDocumentList(false);
   };
 
-  const saveDocument = async () => {
-    try {
-      console.log('💾 Saving document...', { 
-        hasId: !!documentState.id, 
-        title: documentState.title 
-      });
-      
-      if (documentState.id) {
-        // Update existing document
-        console.log('📝 Updating existing document:', documentState.id);
-        await storageService.updateDocument(documentState.id as any, {
-          title: documentState.title,
-          content: documentState.content,
-        });
-      } else {
-        // Create new document
-        console.log('➕ Creating new document');
-        const doc: Omit<Document, 'id' | 'createdAt' | 'updatedAt'> = {
-          title: documentState.title,
-          content: documentState.content,
-          type: 'story',
-        };
-        const id = await storageService.addDocument(doc);
-        console.log('✅ Document created with ID:', id);
-        updateDocumentState({ id: id as any });
-      }
-      
-      // Force immediate save to Google Drive
-      console.log('📤 Force-saving to Google Drive...');
-      await forceSaveToGoogleDrive();
-      
-      updateDocumentState({
-        isDirty: false,
-        lastSaved: new Date(),
-      });
-      
-      console.log('✅ Document saved successfully');
-    } catch (error) {
-      console.error('❌ Error saving document:', error);
-    }
-  };
 
-  const forceSaveToGoogleDrive = async () => {
-    try {
-      const folderId = localStorage.getItem('current_project_folder_id');
-      const isAuthenticated = localStorage.getItem('google_authenticated') === 'true';
-      
-      if (folderId && isAuthenticated && folderId !== 'placeholder') {
-        const { googleDriveService } = await import('../../services/googleDriveService');
-        await googleDriveService.initialize();
-        
-        const projectData = storageService.getData();
-        
-        // Save project metadata
-        console.log('💾 Saving project metadata...');
-        await googleDriveService.saveProjectToFolder(folderId, projectData);
-        console.log('✅ Project metadata saved');
-        
-        // Save only the current document (not all documents)
-        if (documentState.id) {
-          const currentDoc = projectData.documents.find(d => d.id === documentState.id);
-          if (currentDoc) {
-            console.log('💾 Saving current document...');
-            await googleDriveService.saveDocumentToFolder(folderId, currentDoc);
-            console.log('✅ Current document saved');
-          }
-        }
-        
-        console.log('✅ Force-saved to Google Drive');
-      }
-    } catch (error) {
-      console.error('❌ Force-save failed:', error);
-    }
-  };
+  // Subscribe to save status changes
+  useEffect(() => {
+    const unsubscribe = storageService.onSaveStatusChange((status) => {
+      setSaveStatus(status);
+    });
+    return unsubscribe;
+  }, []);
 
-  const handleContentChange = (content: string) => {
+  const handleContentChange = async (content: string) => {
     updateDocumentState({
       content,
       isDirty: true,
     });
+    
+    // Auto-save: Create document if new, or update if exists
+    if (!documentState.id) {
+      // Create new document if no ID yet
+      if (documentState.title) {
+        const doc: Omit<Document, 'id' | 'createdAt' | 'updatedAt'> = {
+          title: documentState.title,
+          content,
+          type: 'story',
+        };
+        const id = await storageService.addDocument(doc);
+        updateDocumentState({ id: id as any, isDirty: false });
+      }
+    } else {
+      // Update existing document
+      await storageService.updateDocument(documentState.id as any, {
+        content,
+      });
+    }
   };
 
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTitleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
     updateDocumentState({
-      title: e.target.value,
+      title: newTitle,
       isDirty: true,
     });
+    
+    // Auto-save title
+    if (documentState.id) {
+      await storageService.updateDocument(documentState.id as any, {
+        title: newTitle,
+      });
+    } else if (newTitle && documentState.content) {
+      // Create new document with title
+      const doc: Omit<Document, 'id' | 'createdAt' | 'updatedAt'> = {
+        title: newTitle,
+        content: documentState.content,
+        type: 'story',
+      };
+      const id = await storageService.addDocument(doc);
+      updateDocumentState({ id: id as any, isDirty: false });
+    }
   };
 
   return (
@@ -138,21 +109,26 @@ const DocumentEditor: React.FC = () => {
             className="text-lg font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-white"
             placeholder="Document Title"
           />
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              saveDocument();
-            }}
-            className={`flex items-center space-x-2 px-4 py-2 rounded transition-colors ${
-              documentState.isDirty
-                ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                : 'bg-blue-500 hover:bg-blue-600 text-white'
-            }`}
-          >
-            <Save className="w-4 h-4" />
-            <span>{documentState.isDirty ? 'Unsaved' : 'Saved'}</span>
-          </button>
+          <div className="flex items-center space-x-2 px-3 py-2 text-sm">
+            {saveStatus === 'saving' && (
+              <>
+                <Loader className="w-4 h-4 animate-spin text-blue-500" />
+                <span className="text-gray-600 dark:text-gray-400">Saving...</span>
+              </>
+            )}
+            {saveStatus === 'saved' && (
+              <>
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span className="text-gray-600 dark:text-gray-400">Saved</span>
+              </>
+            )}
+            {saveStatus === 'error' && (
+              <>
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                <span className="text-red-600 dark:text-red-400">Save failed</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -196,10 +172,10 @@ const DocumentEditor: React.FC = () => {
 
       {/* Status Bar */}
       <div className="flex items-center justify-between p-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
-        <div>
-          {documentState.lastSaved && (
-            <span>Last saved: {new Date(documentState.lastSaved).toLocaleTimeString()}</span>
-          )}
+        <div className="flex items-center space-x-2">
+          {saveStatus === 'saving' && <span>Auto-saving...</span>}
+          {saveStatus === 'saved' && <span className="text-green-600 dark:text-green-400">✓ Saved</span>}
+          {saveStatus === 'error' && <span className="text-red-600 dark:text-red-400">Save failed</span>}
         </div>
         <div>
           Word count: {(documentState.content || '').replace(/<[^>]*>/g, '').split(/\s+/).filter(word => word.length > 0).length}

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { storageService, Document } from '../../services/storageService';
 import { googleAuth } from '../../services/googleAuth';
-import GoogleDriveSync from './GoogleDriveSync';
 import { Download, FileText, Database, Calendar, HardDrive, Trash2, FolderOpen, Cloud, ExternalLink } from 'lucide-react';
 
 const ProjectFiles: React.FC = () => {
@@ -299,11 +298,6 @@ const ProjectFiles: React.FC = () => {
                 ))}
               </div>
             )}
-          </div>
-
-          {/* Google Drive Sync */}
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
-            <GoogleDriveSync projectName={data.projectName} />
           </div>
 
           {/* Quick Stats */}

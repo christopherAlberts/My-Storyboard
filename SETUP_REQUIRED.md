@@ -47,3 +47,4 @@ Each developer/domain needs their own Client ID because:
 - Sharing one Client ID across domains isn't secure or practical
 
 **Bottom line:** Google requires this for security. It's a 5-minute one-time setup that saves your data forever.
+
