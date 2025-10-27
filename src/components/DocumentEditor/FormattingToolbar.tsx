@@ -198,9 +198,7 @@ const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
 
       {/* Location Recognition */}
       {onToggleLocationRecognition && (
-        <>
-          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
-          <button
+        <button
             onClick={onToggleLocationRecognition}
             className={`p-2 rounded transition-colors ${
               locationRecognitionEnabled
