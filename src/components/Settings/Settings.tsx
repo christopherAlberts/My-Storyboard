@@ -181,7 +181,7 @@ const Settings: React.FC = () => {
           </h2>
 
         {/* Character Name Capitalization */}
-        {characterRecognitionEnabled && (
+        (
           <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <button
               onClick={() => setCapDropdownOpen(!capDropdownOpen)}
@@ -240,7 +240,7 @@ const Settings: React.FC = () => {
         )}
 
         {/* Character Tooltip Fields */}
-        {characterRecognitionEnabled && (
+        (
           <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <button
               onClick={() => setTooltipDropdownOpen(!tooltipDropdownOpen)}
@@ -323,7 +323,7 @@ const Settings: React.FC = () => {
           </h2>
 
         {/* Location Name Capitalization */}
-        {locationRecognitionEnabled && (
+        (
           <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <button
               onClick={() => setLocationCapDropdownOpen(!locationCapDropdownOpen)}
@@ -382,7 +382,7 @@ const Settings: React.FC = () => {
         )}
 
         {/* Location Tooltip Fields */}
-        {locationRecognitionEnabled && (
+        (
           <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <button
               onClick={() => setLocationTooltipDropdownOpen(!locationTooltipDropdownOpen)}
