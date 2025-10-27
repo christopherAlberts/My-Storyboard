@@ -7,6 +7,7 @@ import Sidebar from './components/Sidebar/Sidebar';
 import WindowManager from './components/WindowManager/WindowManager';
 import SimpleSignIn from './components/Auth/SimpleSignIn';
 import ProjectSelectionModal from './components/Setup/ProjectSelectionModal';
+import GlobalSaveStatus from './components/GlobalSaveStatus';
 import { Menu, PanelLeft } from 'lucide-react';
 
 function App() {
