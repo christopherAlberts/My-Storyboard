@@ -756,18 +756,21 @@ class GoogleDriveService {
     // Documents now have format: {Title}_{ID}.json
     const documentFiles = files.filter((f) => f.name.endsWith('.json') && !f.name.endsWith('_data.json'));
 
-    const documents = [];
-    for (const file of documentFiles) {
+    // Load all documents in parallel for better performance
+    const documentPromises = documentFiles.map(async (file) => {
       try {
         const content = await this.getFile(file.id);
         const document = JSON.parse(content);
-        documents.push(document);
+        return document;
       } catch (error) {
         console.error(`Error loading document ${file.name}:`, error);
+        return null;
       }
-    }
+    });
 
-    return documents;
+    const results = await Promise.all(documentPromises);
+    // Filter out any null results from failed loads
+    return results.filter((doc) => doc !== null);
   }
 
   // Delete an entire project folder

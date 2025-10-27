@@ -15,6 +15,8 @@ function App() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [showProjectSelection, setShowProjectSelection] = useState(false);
   const [currentProjectFolderId, setCurrentProjectFolderId] = useState<string | null>(null);
+  const [isLoadingProject, setIsLoadingProject] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState({ stage: '', progress: 0 });
 
   // Check authentication status on mount
   useEffect(() => {
@@ -62,16 +64,20 @@ function App() {
   };
 
   const loadProjectFromDrive = async (folderId: string) => {
+    setIsLoadingProject(true);
     try {
+      setLoadingProgress({ stage: 'Loading project data...', progress: 10 });
       console.log('📥 Loading project data from folder:', folderId);
       
       const projectData = await googleDriveService.loadProjectFromFolder(folderId);
       console.log('✅ Project data loaded:', projectData.projectName);
+      setLoadingProgress({ stage: 'Loading documents...', progress: 40 });
       
       // Load documents separately from the project folder
       console.log('📄 Loading documents from folder...');
       const documents = await googleDriveService.loadDocumentsFromFolder(folderId);
       console.log('✅ Loaded', documents.length, 'documents');
+      setLoadingProgress({ stage: 'Initializing project...', progress: 80 });
       
       // Merge documents into project data
       projectData.documents = documents;
@@ -79,11 +85,18 @@ function App() {
       console.log('💾 Initializing storage service with Google Drive data...');
       await storageService.initialize(projectData);
       console.log('✅ Project loaded from Google Drive with', documents.length, 'documents');
+      setLoadingProgress({ stage: 'Complete!', progress: 100 });
+      
+      // Small delay to show completion before hiding loader
+      await new Promise(resolve => setTimeout(resolve, 300));
     } catch (error) {
       console.error('❌ Error loading project from Google Drive:', error);
       console.error('Error details:', error);
       // If loading fails, show project selection
       setShowProjectSelection(true);
+    } finally {
+      setIsLoadingProject(false);
+      setLoadingProgress({ stage: '', progress: 0 });
     }
   };
 
@@ -165,6 +178,29 @@ function App() {
 
   if (!isAuthenticated) {
     return <SimpleSignIn />;
+  }
+
+  // Show loading indicator when loading project
+  if (isLoadingProject) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-white dark:bg-gray-900">
+        <div className="text-center w-full max-w-md px-4">
+          <div className="relative w-64 h-2 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-4 overflow-hidden">
+            <div 
+              className="absolute top-0 left-0 h-full bg-blue-600 transition-all duration-300 ease-out rounded-full"
+              style={{ width: `${loadingProgress.progress}%` }}
+            />
+          </div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+          <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            Loading Project
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {loadingProgress.stage || 'Preparing...'}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   // ALWAYS show project selection modal when authenticated - user must choose a project
