@@ -163,9 +163,16 @@ export const useAppStore = create<AppStore>()(
         const currentFields = get().tooltipFields;
         const newFields = { ...currentFields, ...fields };
         
+        console.log('💾 Saving tooltip fields:', newFields);
+        
         // Update state and storage simultaneously
         set({ tooltipFields: newFields });
-        storageService.updateSettings({ tooltipFields: newFields });
+        // Use await to ensure settings are saved before continuing
+        storageService.updateSettings({ tooltipFields: newFields }).then(() => {
+          console.log('✅ Tooltip fields saved successfully');
+        }).catch((error) => {
+          console.error('❌ Error saving tooltip fields:', error);
+        });
       },
 
       // Window management

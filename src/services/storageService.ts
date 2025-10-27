@@ -361,7 +361,9 @@ class StorageService {
       
       // Save project metadata only if needed (when non-document data changed)
       if (this.needsProjectSave) {
+        console.log('💾 Saving project data to Google Drive, settings included:', this.data.settings);
         await googleDriveService.saveProjectToFolder(folderId, this.data, true);
+        console.log('✅ Project data saved, including settings');
       }
       
       // Only save changed documents (not all documents)
@@ -874,9 +876,19 @@ class StorageService {
   }
 
   async updateSettings(settings: Partial<Settings>): Promise<void> {
-    Object.assign(this.getData().settings, settings);
+    const currentSettings = this.getData().settings;
+    Object.assign(currentSettings, settings);
+    
+    // Ensure settings are properly assigned
+    this.getData().settings = currentSettings;
+    
+    console.log('💾 Updating settings in storage:', settings);
+    console.log('💾 Full settings object:', this.getData().settings);
+    
     this.needsProjectSave = true;
     await this.saveData();
+    
+    console.log('✅ Settings saved to storage');
   }
 }
 
