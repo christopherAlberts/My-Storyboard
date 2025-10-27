@@ -291,6 +291,9 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Global Save Status Indicator */}
+      <GlobalSaveStatus />
     </div>
     </>
   );
