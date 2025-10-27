@@ -6,6 +6,7 @@ import CharacterTooltip from './CharacterTooltip';
 import LocationTooltip from './LocationTooltip';
 import FormattingToolbar from './FormattingToolbar';
 import TableOfContents from './TableOfContents';
+import PaginatedView from './PaginatedView';
 
 interface CustomEditorProps {
   content: string;
@@ -26,6 +27,8 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [localShowTableOfContents, setLocalShowTableOfContents] = useState(false);
   const applyHighlightingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [viewMode, setViewMode] = useState<'plain' | 'paginated'>('plain');
+  const pendingContentRef = useRef<string | null>(null);
   
   // Use refs to track current state to avoid stale closures in timeouts
   const characterRecognitionEnabledRef = useRef(characterRecognitionEnabled);
@@ -771,10 +774,63 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
   // Initialize content and update when prop changes from outside
   useEffect(() => {
     if (editorRef.current && content !== undefined) {
-      const currentContent = removeHighlights(editorRef.current.innerHTML);
-      // Always update if the content prop is different (user switched documents)
-      if (currentContent !== content) {
-        editorRef.current.innerHTML = content || '<p><br></p>';
+      // Check if element is actually in the document (important when switching views)
+      const isInDocument = document.body.contains(editorRef.current);
+      
+      if (isInDocument) {
+        const currentContent = removeHighlights(editorRef.current.innerHTML);
+        // Use pending content if available (from view switch), otherwise use content prop
+        const sourceContent = pendingContentRef.current || content;
+        const cleanContent = sourceContent || '<p><br></p>';
+        
+        // Always update if the content is different
+        // This ensures both views always show the same content
+        if (currentContent !== cleanContent) {
+        // Save cursor position
+        const selection = window.getSelection();
+        const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+        let cursorOffset = 0;
+        
+        if (range && editorRef.current.contains(range.startContainer)) {
+          const preCaretRange = range.cloneRange();
+          preCaretRange.selectNodeContents(editorRef.current);
+          preCaretRange.setEnd(range.startContainer, range.startOffset);
+          cursorOffset = preCaretRange.toString().length;
+        }
+        
+        editorRef.current.innerHTML = cleanContent;
+        
+        // Restore cursor if possible
+        if (cursorOffset > 0 && selection) {
+          setTimeout(() => {
+            try {
+              const textNodes: Text[] = [];
+              const walker = document.createTreeWalker(editorRef.current!, NodeFilter.SHOW_TEXT);
+              let node;
+              while ((node = walker.nextNode())) {
+                textNodes.push(node);
+              }
+              
+              let currentOffset = 0;
+              for (const textNode of textNodes) {
+                const nodeLength = textNode.textContent?.length || 0;
+                if (currentOffset + nodeLength >= cursorOffset) {
+                  const newRange = document.createRange();
+                  const offsetInNode = cursorOffset - currentOffset;
+                  newRange.setStart(textNode, Math.min(offsetInNode, nodeLength));
+                  newRange.setEnd(textNode, Math.min(offsetInNode, nodeLength));
+                  selection.removeAllRanges();
+                  selection.addRange(newRange);
+                  break;
+                }
+                currentOffset += nodeLength;
+              }
+            } catch (e) {
+              // Cursor restoration failed
+            }
+          }, 0);
+        }
+        
         // Reapply highlighting after content change - only if recognition is enabled
         setTimeout(() => {
           // Use refs to check CURRENT state
@@ -794,9 +850,24 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
             }
           }
         }, 100);
+        }
+      } else {
+        // Element not in document yet (view switching), initialize it when it mounts
+        const sourceContent = pendingContentRef.current || content;
+        const cleanContent = sourceContent || '<p><br></p>';
+        // Set up observer or use setTimeout to initialize when element is ready
+        const checkAndInit = () => {
+          if (editorRef.current && document.body.contains(editorRef.current)) {
+            editorRef.current.innerHTML = cleanContent;
+          }
+        };
+        // Try immediately
+        checkAndInit();
+        // Also try after a short delay
+        setTimeout(checkAndInit, 50);
       }
     }
-  }, [content, characterRecognitionEnabled, locationRecognitionEnabled, characters, locations, applyCharacterHighlighting, applyLocationHighlighting]);
+  }, [content, characterRecognitionEnabled, locationRecognitionEnabled, characters, locations, applyCharacterHighlighting, applyLocationHighlighting, viewMode]);
 
   const handleInput = () => {
     handleContentChange();
@@ -921,6 +992,31 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
     }
   };
 
+  const handleInsertPageBreak = () => {
+    if (!editorRef.current) return;
+    
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    const pageBreak = document.createElement('div');
+    pageBreak.className = 'page-break';
+    pageBreak.style.cssText = 'page-break-after: always; border-top: 1px dashed #ccc; margin: 20px 0; padding-top: 10px; color: #999; font-size: 11px; text-align: center;';
+    pageBreak.innerHTML = '<hr style="border: 0; border-top: 2px dashed #ccc; margin: 10px 0;" />';
+    
+    range.insertNode(pageBreak);
+    
+    // Place cursor after the page break
+    const newRange = document.createRange();
+    newRange.setStartAfter(pageBreak);
+    newRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+    
+    // Trigger content change
+    handleContentChange();
+  };
+
   const activeTableOfContents = externalShowTable ?? localShowTableOfContents;
   
   // Debug: Log when TOC state changes
@@ -929,6 +1025,56 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
     externalShowTable, 
     localShowTableOfContents 
   });
+
+  // Toggle view mode function
+  const toggleViewMode = () => {
+    // Before switching views, capture and sync current editor content
+    if (editorRef.current) {
+      const currentContent = removeHighlights(editorRef.current.innerHTML);
+      // Store content in ref so it can be used immediately in the new view
+      if (currentContent.trim() && currentContent !== '<p><br></p>') {
+        pendingContentRef.current = currentContent;
+        // Sync content immediately
+        onChange(currentContent);
+      }
+    }
+    // Switch view immediately - the new view will use pendingContentRef if content prop hasn't updated yet
+    setViewMode(prev => prev === 'plain' ? 'paginated' : 'plain');
+    // Clear pending content after a delay
+    setTimeout(() => {
+      pendingContentRef.current = null;
+    }, 100);
+  };
+
+  // If in paginated mode, render the paginated view
+  if (viewMode === 'paginated') {
+    return (
+      <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-800">
+        {/* Formatting Toolbar */}
+        <FormattingToolbar 
+          editorRef={editorRef} 
+          onToggleFormat={handleToggleFormat}
+          characterRecognitionEnabled={characterRecognitionEnabled}
+          onToggleCharacterRecognition={toggleCharacterRecognition}
+          locationRecognitionEnabled={locationRecognitionEnabled}
+          onToggleLocationRecognition={toggleLocationRecognition}
+          onToggleTableOfContents={onToggleTableOfContents || (() => setLocalShowTableOfContents(prev => !prev))}
+          showTableOfContents={activeTableOfContents}
+          viewMode={viewMode}
+          onToggleViewMode={toggleViewMode}
+          onInsertPageBreak={handleInsertPageBreak}
+        />
+        
+        <PaginatedView 
+          content={pendingContentRef.current || content} 
+          onContentChange={onChange}
+          editorRef={editorRef}
+          showTableOfContents={activeTableOfContents}
+          onToggleTableOfContents={onToggleTableOfContents || (() => setLocalShowTableOfContents(prev => !prev))}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-800">
@@ -942,10 +1088,13 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
         onToggleLocationRecognition={toggleLocationRecognition}
         onToggleTableOfContents={onToggleTableOfContents || (() => setLocalShowTableOfContents(prev => !prev))}
         showTableOfContents={activeTableOfContents}
+        viewMode={viewMode}
+        onToggleViewMode={toggleViewMode}
+        onInsertPageBreak={handleInsertPageBreak}
       />
 
       {/* Editor container */}
-      <div className="flex-1 relative overflow-auto flex">
+      <div className="flex-1 relative overflow-hidden flex">
         {tooltipState && (
           <CharacterTooltip
             character={tooltipState.character}
@@ -967,22 +1116,27 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
           onInput={handleInput}
           onBlur={handleContentChange}
           onKeyDown={handleKeyDown}
-          className="flex-1 p-4 outline-none text-gray-900 dark:text-white bg-transparent"
+          className="flex-1 p-4 outline-none text-gray-900 dark:text-white bg-transparent overflow-auto"
           style={{
             whiteSpace: 'pre-wrap',
-            wordWrap: 'break-word'
+            wordWrap: 'break-word',
+            minWidth: 0
           }}
         />
         
         {/* Table of Contents */}
-        <TableOfContents 
-          editorRef={editorRef} 
-          isOpen={activeTableOfContents} 
-          onClose={() => {
-            setLocalShowTableOfContents(false);
-            onToggleTableOfContents?.();
-          }} 
-        />
+        {activeTableOfContents && (
+          <div className="flex-shrink-0 overflow-hidden">
+            <TableOfContents 
+              editorRef={editorRef} 
+              isOpen={activeTableOfContents} 
+              onClose={() => {
+                setLocalShowTableOfContents(false);
+                onToggleTableOfContents?.();
+              }} 
+            />
+          </div>
+        )}
       </div>
     </div>
   );
