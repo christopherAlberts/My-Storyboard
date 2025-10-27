@@ -272,9 +272,9 @@ class StorageService {
       maps: [],
       settings: {
         theme: 'dark',
-        characterRecognitionEnabled: true,
+        characterRecognitionEnabled: false,
         characterNameCapitalization: 'uppercase',
-        locationRecognitionEnabled: true,
+        locationRecognitionEnabled: false,
         locationNameCapitalization: 'uppercase',
         tooltipFields: {
           // Character fields

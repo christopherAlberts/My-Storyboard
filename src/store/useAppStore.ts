@@ -447,6 +447,13 @@ export const useAppStore = create<AppStore>()(
                 lastSaved: document.updatedAt ? new Date(document.updatedAt) : null,
               },
             }));
+            
+            // Reset recognition toggles to OFF when opening a document
+            set({ characterRecognitionEnabled: false, locationRecognitionEnabled: false });
+            storageService.updateSettings({ 
+              characterRecognitionEnabled: false, 
+              locationRecognitionEnabled: false 
+            });
           }
         } catch (error) {
           console.error('Error loading document:', error);
@@ -463,6 +470,13 @@ export const useAppStore = create<AppStore>()(
             lastSaved: null,
           },
         }));
+        
+        // Reset recognition toggles to OFF when creating a new document
+        set({ characterRecognitionEnabled: false, locationRecognitionEnabled: false });
+        storageService.updateSettings({ 
+          characterRecognitionEnabled: false, 
+          locationRecognitionEnabled: false 
+        });
       },
 
       // Database view state
