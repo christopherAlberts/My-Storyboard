@@ -9,6 +9,7 @@ const DocumentEditor: React.FC = () => {
   const { documentState, updateDocumentState, loadDocument, createNewDocument } = useAppStore();
   const [showDocumentList, setShowDocumentList] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saving' | 'saved' | 'error'>('saved');
+  const [showTableOfContents, setShowTableOfContents] = useState(false);
 
   // Don't auto-create a document - user must manually create or open one
 
@@ -147,8 +148,8 @@ const DocumentEditor: React.FC = () => {
           <CustomEditor
             content={documentState.content || ''}
             onChange={handleContentChange}
-            showTableOfContents={false}
-            onToggleTableOfContents={undefined}
+            showTableOfContents={showTableOfContents}
+            onToggleTableOfContents={() => setShowTableOfContents(prev => !prev)}
           />
         )}
       </div>
