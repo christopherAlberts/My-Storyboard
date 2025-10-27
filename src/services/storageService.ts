@@ -198,6 +198,8 @@ class StorageService {
   private isInitialized: boolean = false;
   private saveStatusListeners: Array<(status: 'saving' | 'saved' | 'error') => void> = [];
   private lastSaveStatus: 'saving' | 'saved' | 'error' = 'saved';
+  private changedDocumentIds: Set<string> = new Set(); // Track which documents changed
+  private needsProjectSave: boolean = false; // Track if project metadata needs saving
 
   private constructor() {
     // Don't auto-load - wait for project to be selected
@@ -310,13 +312,16 @@ class StorageService {
             try {
               await this.saveToGoogleDrive();
               this.updateSaveStatus('saved');
+              // Clear changed documents after successful save
+              this.changedDocumentIds.clear();
+              this.needsProjectSave = false;
             } catch (error) {
               this.updateSaveStatus('error');
             } finally {
               this.isSaving = false;
             }
           }
-        }, 200); // Fast auto-save like Google Docs (200ms debounce)
+        }, 100); // Fast auto-save (100ms debounce)
       }
       
       this.notifyListeners();
@@ -340,28 +345,30 @@ class StorageService {
       // Ensure Google Drive is initialized
       await googleDriveService.initialize();
       
-      console.log('💾 Saving project data to Google Drive:', {
-        folderId,
-        projectName: this.data?.projectName,
-        documentCount: this.data?.documents.length
-      });
-      
-      // Save project metadata (without documents)
-      await googleDriveService.saveProjectToFolder(folderId, this.data, true); // Force save - no conflict checks needed
-      
-      // Save each document as a separate file
-      const documentsToSave = [...(this.data?.documents || [])];
-      
-      for (const doc of documentsToSave) {
-        try {
-          await googleDriveService.saveDocumentToFolder(folderId, doc);
-        } catch (docError) {
-          console.error(`❌ Failed to save document "${doc.title}":`, docError);
-          // Continue with other documents even if one fails
-        }
+      // Save project metadata only if needed (when non-document data changed)
+      if (this.needsProjectSave) {
+        await googleDriveService.saveProjectToFolder(folderId, this.data, true);
       }
       
-      console.log('✅ Successfully saved to Google Drive');
+      // Only save changed documents (not all documents)
+      if (this.changedDocumentIds.size > 0) {
+        const documentsToSave = this.getData().documents.filter(doc => 
+          doc.id && this.changedDocumentIds.has(doc.id)
+        );
+        
+        // Save documents in parallel for speed
+        await Promise.all(
+          documentsToSave.map(async (doc) => {
+            try {
+              await googleDriveService.saveDocumentToFolder(folderId, doc);
+            } catch (docError) {
+              console.error(`❌ Failed to save document "${doc.title}":`, docError);
+            }
+          })
+        );
+      }
+      
+      console.log(`✅ Saved ${this.changedDocumentIds.size} document(s) to Google Drive`);
     } catch (error) {
       console.error('❌ Save to Google Drive failed:', error);
       // Don't throw - this is background save
@@ -460,6 +467,7 @@ class StorageService {
       updatedAt: now,
     };
     this.getData().characters.push(newCharacter);
+    this.needsProjectSave = true;
     await this.saveData();
     return newCharacter.id!;
   }
@@ -468,12 +476,14 @@ class StorageService {
     const char = this.getData().characters.find(c => c.id === id);
     if (char) {
       Object.assign(char, updates, { updatedAt: new Date().toISOString() });
+      this.needsProjectSave = true;
       await this.saveData();
     }
   }
 
   async deleteCharacter(id: string): Promise<void> {
     this.getData().characters = this.getData().characters.filter(c => c.id !== id);
+    this.needsProjectSave = true;
     await this.saveData();
   }
 
@@ -495,6 +505,7 @@ class StorageService {
       updatedAt: now,
     };
     this.getData().locations.push(newLocation);
+    this.needsProjectSave = true;
     await this.saveData();
     return newLocation.id!;
   }
@@ -503,12 +514,14 @@ class StorageService {
     const loc = this.getData().locations.find(l => l.id === id);
     if (loc) {
       Object.assign(loc, updates, { updatedAt: new Date().toISOString() });
+      this.needsProjectSave = true;
       await this.saveData();
     }
   }
 
   async deleteLocation(id: string): Promise<void> {
     this.getData().locations = this.getData().locations.filter(l => l.id !== id);
+    this.needsProjectSave = true;
     await this.saveData();
   }
 
@@ -530,6 +543,7 @@ class StorageService {
       updatedAt: now,
     };
     this.getData().plotPoints.push(newPlotPoint);
+    this.needsProjectSave = true;
     await this.saveData();
     return newPlotPoint.id!;
   }
@@ -538,12 +552,14 @@ class StorageService {
     const pp = this.getData().plotPoints.find(p => p.id === id);
     if (pp) {
       Object.assign(pp, updates, { updatedAt: new Date().toISOString() });
+      this.needsProjectSave = true;
       await this.saveData();
     }
   }
 
   async deletePlotPoint(id: string): Promise<void> {
     this.getData().plotPoints = this.getData().plotPoints.filter(p => p.id !== id);
+    this.needsProjectSave = true;
     await this.saveData();
   }
 
@@ -565,6 +581,7 @@ class StorageService {
       updatedAt: now,
     };
     this.getData().chapters.push(newChapter);
+    this.needsProjectSave = true;
     await this.saveData();
     return newChapter.id!;
   }
@@ -573,12 +590,14 @@ class StorageService {
     const ch = this.getData().chapters.find(c => c.id === id);
     if (ch) {
       Object.assign(ch, updates, { updatedAt: new Date().toISOString() });
+      this.needsProjectSave = true;
       await this.saveData();
     }
   }
 
   async deleteChapter(id: string): Promise<void> {
     this.getData().chapters = this.getData().chapters.filter(c => c.id !== id);
+    this.needsProjectSave = true;
     await this.saveData();
   }
 
@@ -601,10 +620,12 @@ class StorageService {
     };
     console.log('📄 Adding new document:', { title: document.title });
     this.getData().documents.push(newDocument);
+    // Mark as changed - will be saved by debounced save
+    if (newDocument.id) {
+      this.changedDocumentIds.add(newDocument.id);
+      this.needsProjectSave = true; // New document added, need to update project metadata
+    }
     await this.saveData();
-    
-    // Also immediately save the new document to Google Drive
-    await this.saveDocumentToDrive(newDocument.id!);
     
     return newDocument.id!;
   }
@@ -613,46 +634,21 @@ class StorageService {
   async updateDocument(id: string, updates: Partial<Document>): Promise<void> {
     const doc = this.getData().documents.find(d => d.id === id);
     if (doc) {
-      console.log('📝 Updating document:', { id, title: updates.title });
       Object.assign(doc, updates, { updatedAt: new Date().toISOString() });
+      // Mark this document as changed - will be saved by debounced save
+      if (id) {
+        this.changedDocumentIds.add(id);
+      }
       await this.saveData();
-      
-      // Also immediately save this specific document to Google Drive
-      await this.saveDocumentToDrive(id);
     } else {
       console.error('❌ Document not found for update:', id);
-    }
-  }
-  
-  // Save a specific document to Google Drive immediately
-  private async saveDocumentToDrive(documentId: string): Promise<void> {
-    try {
-      const folderId = localStorage.getItem('current_project_folder_id');
-      const isAuthenticated = localStorage.getItem('google_authenticated') === 'true';
-      
-      if (!folderId || !isAuthenticated || folderId === 'placeholder') {
-        return; // Silent fail - will be saved by debounced save
-      }
-      
-      const doc = this.getData().documents.find(d => d.id === documentId);
-      if (!doc) {
-        console.warn('⚠️ Document not found for direct save:', documentId);
-        return;
-      }
-      
-      const { googleDriveService } = await import('./googleDriveService');
-      await googleDriveService.initialize();
-      await googleDriveService.saveDocumentToFolder(folderId, doc);
-      console.log('✅ Document saved directly to Google Drive:', doc.title);
-    } catch (error) {
-      console.error('❌ Failed to save document directly:', error);
-      // Don't throw - will be saved by debounced save
     }
   }
 
   async deleteDocument(id: string): Promise<void> {
     console.log('🗑️ Deleting document:', { id });
     this.getData().documents = this.getData().documents.filter(d => d.id !== id);
+    this.needsProjectSave = true; // Document deleted, need to update project metadata
     await this.saveData();
     
     // Also delete the document file from Google Drive
@@ -722,6 +718,7 @@ class StorageService {
 
   async updateSettings(settings: Partial<Settings>): Promise<void> {
     Object.assign(this.getData().settings, settings);
+    this.needsProjectSave = true;
     await this.saveData();
   }
 }

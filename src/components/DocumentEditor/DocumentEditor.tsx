@@ -84,7 +84,7 @@ const DocumentEditor: React.FC = () => {
   return (
     <div className="h-full flex flex-col bg-white dark:bg-gray-800">
       {/* Document Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 relative">
         <div className="flex items-center space-x-3">
           <button
             onClick={() => setShowDocumentList(true)}
@@ -101,34 +101,17 @@ const DocumentEditor: React.FC = () => {
             <span>New</span>
           </button>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center">
           <input
             type="text"
             value={documentState.title || ''}
             onChange={handleTitleChange}
-            className="text-lg font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-white"
+            className="text-lg font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-white text-center"
             placeholder="Document Title"
           />
-          <div className="flex items-center space-x-2 px-3 py-2 text-sm">
-            {saveStatus === 'saving' && (
-              <>
-                <Loader className="w-4 h-4 animate-spin text-blue-500" />
-                <span className="text-gray-600 dark:text-gray-400">Saving...</span>
-              </>
-            )}
-            {saveStatus === 'saved' && (
-              <>
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-gray-600 dark:text-gray-400">Saved</span>
-              </>
-            )}
-            {saveStatus === 'error' && (
-              <>
-                <AlertCircle className="w-4 h-4 text-red-500" />
-                <span className="text-red-600 dark:text-red-400">Save failed</span>
-              </>
-            )}
-          </div>
+        </div>
+        <div className="w-20">
+          {/* Spacer to balance the layout */}
         </div>
       </div>
 
