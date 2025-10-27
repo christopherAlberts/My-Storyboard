@@ -35,10 +35,29 @@ const DatabaseView: React.FC = () => {
       }
     };
     
+    // Listen for location selection events from document editor
+    const handleSelectLocation = (event: any) => {
+      const locationId = event.detail.locationId;
+      if (locationId) {
+        // Update to show locations tab
+        updateDatabaseViewState({ activeTable: 'locations' });
+        
+        // Scroll to the location in the list after a short delay
+        setTimeout(() => {
+          const event = new CustomEvent('scroll-to-location', { 
+            detail: { locationId } 
+          });
+          window.dispatchEvent(event);
+        }, 200);
+      }
+    };
+    
     window.addEventListener('select-character', handleSelectCharacter as EventListener);
+    window.addEventListener('select-location', handleSelectLocation as EventListener);
     
     return () => {
       window.removeEventListener('select-character', handleSelectCharacter as EventListener);
+      window.removeEventListener('select-location', handleSelectLocation as EventListener);
     };
   }, []);
 

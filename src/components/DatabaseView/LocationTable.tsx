@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Location } from '../../database/schema';
 import { Edit, Trash2, Plus, Save, X, MapPin, Settings, Minus } from 'lucide-react';
 
@@ -20,6 +20,37 @@ const LocationTable: React.FC<LocationTableProps> = ({
   const [activeTab, setActiveTab] = useState<'basic' | 'details' | 'custom'>('basic');
   const [newCustomFieldName, setNewCustomFieldName] = useState('');
   const [newCustomFieldValue, setNewCustomFieldValue] = useState('');
+
+  // Listen for scroll-to-location events from document editor
+  useEffect(() => {
+    const handleScrollToLocation = (event: any) => {
+      const locationIdStr = String(event.detail.locationId);
+      const location = locations.find(l => String(l.id) === locationIdStr);
+      
+      if (location) {
+        // Open the location in edit mode
+        handleEdit(location);
+        
+        // Scroll to the location element
+        setTimeout(() => {
+          const element = document.getElementById(`location-${location.id}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Highlight the element briefly
+            (element as HTMLElement).style.backgroundColor = 'rgba(59, 130, 246, 0.3)';
+            setTimeout(() => {
+              (element as HTMLElement).style.backgroundColor = '';
+            }, 2000);
+          }
+        }, 100);
+      }
+    };
+    
+    window.addEventListener('scroll-to-location', handleScrollToLocation as EventListener);
+    return () => {
+      window.removeEventListener('scroll-to-location', handleScrollToLocation as EventListener);
+    };
+  }, [locations, editingId]);
 
   const handleEdit = (location: Location) => {
     setEditingId(location.id!);
@@ -129,6 +160,38 @@ const LocationTable: React.FC<LocationTableProps> = ({
           className="form-input"
           rows={3}
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Recognition Color
+        </label>
+        <div className="flex items-center space-x-2">
+          <input
+            type="color"
+            value={editData.color || '#90EE90'}
+            onChange={(e) => {
+              const newColor = e.target.value;
+              handleChange('color', newColor);
+            }}
+            className="w-16 h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+          />
+          <input
+            type="text"
+            value={editData.color || '#90EE90'}
+            onChange={(e) => {
+              const newColor = e.target.value;
+              if (/^#[0-9A-Fa-f]{6}$/.test(newColor) || newColor === '') {
+                handleChange('color', newColor);
+              }
+            }}
+            className="flex-1 form-input font-mono"
+            placeholder="#hex color (e.g., #90EE90)"
+          />
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          Color for location name highlighting in documents
+        </p>
       </div>
 
       <div>
@@ -369,6 +432,7 @@ const LocationTable: React.FC<LocationTableProps> = ({
                 {locations.map((location) => (
                   <div
                     key={location.id}
+                    id={`location-${location.id}`}
                     className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                       editingId === location.id
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'

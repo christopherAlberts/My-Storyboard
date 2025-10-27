@@ -52,6 +52,7 @@ export interface Location {
   resources: string;
   connectedLocations: string[];
   frequentCharacters: string[];
+  color?: string; // Location recognition color
   customFields: Record<string, any>;
   createdAt: string;
   updatedAt: string;
@@ -171,6 +172,8 @@ export interface Settings {
   theme: 'light' | 'dark';
   characterRecognitionEnabled: boolean;
   characterNameCapitalization: 'uppercase' | 'lowercase' | 'leave-as-is';
+  locationRecognitionEnabled: boolean;
+  locationNameCapitalization: 'uppercase' | 'lowercase' | 'leave-as-is';
   tooltipFields: Record<string, boolean>;
 }
 
@@ -271,6 +274,8 @@ class StorageService {
         theme: 'dark',
         characterRecognitionEnabled: true,
         characterNameCapitalization: 'uppercase',
+        locationRecognitionEnabled: true,
+        locationNameCapitalization: 'uppercase',
         tooltipFields: {
           description: true,
           role: true,
@@ -630,8 +635,19 @@ class StorageService {
 
   async addLocation(location: Omit<Location, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     const now = new Date().toISOString();
+    
+    // Generate unique pastel color if not provided
+    let locationColor = location.color;
+    if (!locationColor || locationColor === '' || locationColor === '#90EE90' || locationColor === '#000000') {
+      const existingColors = this.getData().locations
+        .map(l => l.color)
+        .filter((c): c is string => !!c);
+      locationColor = this.generateUniquePastelColor(existingColors);
+    }
+    
     const newLocation: Location = {
       ...location,
+      color: locationColor,
       id: this.generateId(),
       createdAt: now,
       updatedAt: now,

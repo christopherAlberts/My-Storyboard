@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered, Link, Eye, FileText, Type } from 'lucide-react';
+import { Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered, Link, Eye, FileText, Type, Home } from 'lucide-react';
 
 interface FormattingToolbarProps {
   editorRef: React.RefObject<HTMLDivElement>;
   onToggleFormat: (command: string, value?: any) => void;
   characterRecognitionEnabled?: boolean;
   onToggleCharacterRecognition?: () => void;
+  locationRecognitionEnabled?: boolean;
+  onToggleLocationRecognition?: () => void;
   onToggleTableOfContents?: () => void;
   showTableOfContents?: boolean;
 }
@@ -15,6 +17,8 @@ const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
   onToggleFormat,
   characterRecognitionEnabled = false,
   onToggleCharacterRecognition,
+  locationRecognitionEnabled = false,
+  onToggleLocationRecognition,
   onToggleTableOfContents,
   showTableOfContents = false
 }) => {
@@ -188,6 +192,24 @@ const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
             title={characterRecognitionEnabled ? 'Disable character highlights' : 'Enable character highlights'}
           >
             <Eye className="w-4 h-4" />
+          </button>
+        </>
+      )}
+
+      {/* Location Recognition */}
+      {onToggleLocationRecognition && (
+        <>
+          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+          <button
+            onClick={onToggleLocationRecognition}
+            className={`p-2 rounded transition-colors ${
+              locationRecognitionEnabled
+                ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
+            }`}
+            title={locationRecognitionEnabled ? 'Disable location highlights' : 'Enable location highlights'}
+          >
+            <Home className="w-4 h-4" />
           </button>
         </>
       )}

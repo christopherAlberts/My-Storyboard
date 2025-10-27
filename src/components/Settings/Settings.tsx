@@ -4,7 +4,7 @@ import { googleAuth } from '../../services/googleAuth';
 import { Sun, Moon, Monitor, Coffee, Eye, EyeOff, ChevronDown, ChevronUp, LogOut, User, Shield } from 'lucide-react';
 
 const Settings: React.FC = () => {
-  const { theme, setTheme, characterRecognitionEnabled, setCharacterRecognitionEnabled, characterNameCapitalization, setCharacterNameCapitalization, tooltipFields, setTooltipFields } = useAppStore();
+  const { theme, setTheme, characterRecognitionEnabled, setCharacterRecognitionEnabled, characterNameCapitalization, setCharacterNameCapitalization, locationRecognitionEnabled, setLocationRecognitionEnabled, locationNameCapitalization, setLocationNameCapitalization, tooltipFields, setTooltipFields } = useAppStore();
   const [googleAccount, setGoogleAccount] = useState<any>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -40,7 +40,9 @@ const Settings: React.FC = () => {
     }
   };
   const [capDropdownOpen, setCapDropdownOpen] = React.useState(false);
+  const [locationCapDropdownOpen, setLocationCapDropdownOpen] = React.useState(false);
   const [tooltipDropdownOpen, setTooltipDropdownOpen] = React.useState(false);
+  const [locationTooltipDropdownOpen, setLocationTooltipDropdownOpen] = React.useState(false);
 
   const themeOptions = [
     {
@@ -269,7 +271,7 @@ const Settings: React.FC = () => {
           </div>
         )}
 
-        {/* Tooltip Fields */}
+        {/* Character Tooltip Fields */}
         {characterRecognitionEnabled && (
           <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <button
@@ -278,7 +280,7 @@ const Settings: React.FC = () => {
             >
               <div>
                 <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                  Hover Tooltip Fields
+                  Character Hover Tooltip Fields
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   {Object.values(tooltipFields).filter(Boolean).length} fields selected
@@ -309,6 +311,176 @@ const Settings: React.FC = () => {
                 { key: 'goals', label: 'Goals', description: 'Character objectives' },
                 { key: 'fears', label: 'Fears', description: 'Character fears and weaknesses' },
                 { key: 'notes', label: 'Notes', description: 'General notes about the character' },
+              ].map((field) => {
+                const isEnabled = tooltipFields[field.key] || false;
+                
+                return (
+                  <div key={field.key} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {field.label}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {field.description}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setTooltipFields({ [field.key]: !isEnabled })}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        isEnabled
+                          ? 'bg-blue-600'
+                          : 'bg-gray-200 dark:bg-gray-700'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          isEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                );
+              })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Location Recognition */}
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Location Recognition
+          </h2>
+          <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div className="flex items-center space-x-3">
+              {locationRecognitionEnabled ? (
+                <Eye className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              ) : (
+                <EyeOff className="w-5 h-5 text-gray-400" />
+              )}
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                  Enable Location Recognition
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Highlight location names in documents with their unique colors
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setLocationRecognitionEnabled(!locationRecognitionEnabled)}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                locationRecognitionEnabled
+                  ? 'bg-blue-600'
+                  : 'bg-gray-200 dark:bg-gray-700'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  locationRecognitionEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Location Name Capitalization */}
+        {locationRecognitionEnabled && (
+          <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setLocationCapDropdownOpen(!locationCapDropdownOpen)}
+              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                  Location Name Capitalization
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {locationNameCapitalization === 'uppercase' && 'Upper Case'}
+                  {locationNameCapitalization === 'lowercase' && 'Lower Case'}
+                  {locationNameCapitalization === 'leave-as-is' && 'Leave As Is'}
+                </p>
+              </div>
+              {locationCapDropdownOpen ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {locationCapDropdownOpen && (
+              <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="space-y-2">
+                  {[
+                    { value: 'uppercase', label: 'Upper Case', description: 'First letter capitalized' },
+                    { value: 'lowercase', label: 'Lower Case', description: 'All lowercase' },
+                    { value: 'leave-as-is', label: 'Leave As Is', description: 'Match user\'s typing' }
+                  ].map((option) => (
+                    <label
+                      key={option.value}
+                      className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <input
+                        type="radio"
+                        name="locationCapitalization"
+                        value={option.value}
+                        checked={locationNameCapitalization === option.value}
+                        onChange={(e) => setLocationNameCapitalization(e.target.value as any)}
+                        className="w-4 h-4 text-blue-600"
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {option.label}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {option.description}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Location Tooltip Fields */}
+        {locationRecognitionEnabled && (
+          <div className="mb-8 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setLocationTooltipDropdownOpen(!locationTooltipDropdownOpen)}
+              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                  Location Hover Tooltip Fields
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Select fields to show in location tooltips
+                </p>
+              </div>
+              {locationTooltipDropdownOpen ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {locationTooltipDropdownOpen && (
+              <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  Select which information to show when hovering over location names
+                </p>
+                <div className="space-y-3">
+              {[
+                { key: 'description', label: 'Description', description: 'Location description' },
+                { key: 'type', label: 'Type', description: 'Indoor, outdoor, urban, etc.' },
+                { key: 'atmosphere', label: 'Atmosphere', description: 'Atmosphere and mood' },
+                { key: 'significance', label: 'Significance', description: 'Story significance' },
+                { key: 'climate', label: 'Climate', description: 'Weather and climate' },
+                { key: 'population', label: 'Population', description: 'Population details' },
+                { key: 'history', label: 'History', description: 'Historical background' },
+                { key: 'culture', label: 'Culture', description: 'Cultural aspects' },
+                { key: 'notes', label: 'Notes', description: 'General notes about the location' },
               ].map((field) => {
                 const isEnabled = tooltipFields[field.key] || false;
                 

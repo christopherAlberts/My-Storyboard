@@ -10,6 +10,11 @@ interface AppStore extends AppState {
   toggleCharacterRecognition: () => void;
   characterNameCapitalization: 'uppercase' | 'lowercase' | 'leave-as-is';
   setCharacterNameCapitalization: (mode: 'uppercase' | 'lowercase' | 'leave-as-is') => void;
+  locationRecognitionEnabled: boolean;
+  setLocationRecognitionEnabled: (enabled: boolean) => void;
+  toggleLocationRecognition: () => void;
+  locationNameCapitalization: 'uppercase' | 'lowercase' | 'leave-as-is';
+  setLocationNameCapitalization: (mode: 'uppercase' | 'lowercase' | 'leave-as-is') => void;
   tooltipFields: Record<string, boolean>;
   setTooltipFields: (fields: Record<string, boolean>) => void;
   
@@ -122,6 +127,8 @@ export const useAppStore = create<AppStore>()(
       snapPreview: initialSnapPreview,
       characterRecognitionEnabled: storageService.getSettings().characterRecognitionEnabled,
       characterNameCapitalization: storageService.getSettings().characterNameCapitalization,
+      locationRecognitionEnabled: storageService.getSettings().locationRecognitionEnabled,
+      locationNameCapitalization: storageService.getSettings().locationNameCapitalization,
       tooltipFields: storageService.getSettings().tooltipFields,
 
       // Settings
@@ -137,6 +144,19 @@ export const useAppStore = create<AppStore>()(
       setCharacterNameCapitalization: (mode) => {
         set({ characterNameCapitalization: mode });
         storageService.updateSettings({ characterNameCapitalization: mode });
+      },
+      setLocationRecognitionEnabled: (enabled) => {
+        set({ locationRecognitionEnabled: enabled });
+        storageService.updateSettings({ locationRecognitionEnabled: enabled });
+      },
+      toggleLocationRecognition: () => {
+        const newValue = !get().locationRecognitionEnabled;
+        set({ locationRecognitionEnabled: newValue });
+        storageService.updateSettings({ locationRecognitionEnabled: newValue });
+      },
+      setLocationNameCapitalization: (mode) => {
+        set({ locationNameCapitalization: mode });
+        storageService.updateSettings({ locationNameCapitalization: mode });
       },
       setTooltipFields: (fields) => {
         set((state) => ({

@@ -20,7 +20,8 @@
   pointer-events: none;
 }
 
-.character-highlight {
+.character-highlight,
+.location-highlight {
   text-decoration: underline !important;
   cursor: pointer !important;
   display: inline !important;

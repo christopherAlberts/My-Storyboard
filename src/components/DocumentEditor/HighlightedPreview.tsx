@@ -1,17 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { storageService, Character } from '../../services/storageService';
-import { Eye } from 'lucide-react';
+import { storageService, Character, Location } from '../../services/storageService';
+import { Eye, Home } from 'lucide-react';
 
 interface HighlightedPreviewProps {
   content: string;
 }
 
 const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
-  const { characterRecognitionEnabled, characterNameCapitalization, tooltipFields } = useAppStore();
+  const { characterRecognitionEnabled, characterNameCapitalization, locationRecognitionEnabled, locationNameCapitalization, tooltipFields } = useAppStore();
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [tooltipState, setTooltipState] = useState<{
     character: Character;
+    position: { x: number; y: number };
+  } | null>(null);
+  const [locationTooltipState, setLocationTooltipState] = useState<{
+    location: Location;
     position: { x: number; y: number };
   } | null>(null);
   const [highlightedContent, setHighlightedContent] = useState('');
@@ -22,6 +27,14 @@ const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
       setCharacters(chars);
     };
     loadCharacters();
+  }, []);
+
+  useEffect(() => {
+    const loadLocations = async () => {
+      const locs = await storageService.getLocations();
+      setLocations(locs);
+    };
+    loadLocations();
   }, []);
 
   useEffect(() => {
@@ -49,14 +62,15 @@ const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
 
   // Process content with highlighting
   useEffect(() => {
-    if (!characterRecognitionEnabled || !content || characters.length === 0) {
+    if ((!characterRecognitionEnabled && !locationRecognitionEnabled) || !content || 
+        (characterRecognitionEnabled && characters.length === 0 && locationRecognitionEnabled && locations.length === 0)) {
       setHighlightedContent(content);
       return;
     }
 
     let processed = content;
 
-    const applyCapitalization = (text: string) => {
+    const applyCharacterCapitalization = (text: string) => {
       switch (characterNameCapitalization) {
         case 'uppercase':
           return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
@@ -69,22 +83,53 @@ const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
       }
     };
 
-    characters.forEach(character => {
-      if (!character.color || !character.name) return;
+    const applyLocationCapitalization = (text: string) => {
+      switch (locationNameCapitalization) {
+        case 'uppercase':
+          return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+        case 'lowercase':
+          return text.toLowerCase();
+        case 'leave-as-is':
+          return text;
+        default:
+          return text;
+      }
+    };
 
-      const escapedName = character.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
-      
-      processed = processed.replace(regex, (match) => {
-        const displayText = characterNameCapitalization === 'leave-as-is' 
-          ? match 
-          : applyCapitalization(match);
-        return `<span class="character-name-hl" style="color: ${character.color}; cursor: pointer; text-decoration: underline;" data-character-id="${character.id}" data-character-name="${character.name}">${displayText}</span>`;
+    if (characterRecognitionEnabled) {
+      characters.forEach(character => {
+        if (!character.color || !character.name) return;
+
+        const escapedName = character.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+        
+        processed = processed.replace(regex, (match) => {
+          const displayText = characterNameCapitalization === 'leave-as-is' 
+            ? match 
+            : applyCharacterCapitalization(match);
+          return `<span class="character-name-hl" style="color: ${character.color}; cursor: pointer; text-decoration: underline;" data-character-id="${character.id}" data-character-name="${character.name}">${displayText}</span>`;
+        });
       });
-    });
+    }
+
+    if (locationRecognitionEnabled) {
+      locations.forEach(location => {
+        if (!location.color || !location.name) return;
+
+        const escapedName = location.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+        
+        processed = processed.replace(regex, (match) => {
+          const displayText = locationNameCapitalization === 'leave-as-is' 
+            ? match 
+            : applyLocationCapitalization(match);
+          return `<span class="location-name-hl" style="color: ${location.color}; cursor: pointer; text-decoration: underline;" data-location-id="${location.id}" data-location-name="${location.name}">${displayText}</span>`;
+        });
+      });
+    }
 
     setHighlightedContent(processed);
-  }, [content, characterRecognitionEnabled, characterNameCapitalization, characters]);
+  }, [content, characterRecognitionEnabled, locationRecognitionEnabled, characterNameCapitalization, locationNameCapitalization, characters, locations]);
 
   // Attach mouse and click handlers
   useEffect(() => {
@@ -177,11 +222,32 @@ const HighlightedPreview: React.FC<HighlightedPreviewProps> = ({ content }) => {
         }
       `}</style>
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Character Recognition Mode
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          {characterRecognitionEnabled && !locationRecognitionEnabled && (
+            <>
+              <Eye className="w-5 h-5" />
+              Character Recognition Mode
+            </>
+          )}
+          {locationRecognitionEnabled && !characterRecognitionEnabled && (
+            <>
+              <Home className="w-5 h-5" />
+              Location Recognition Mode
+            </>
+          )}
+          {(characterRecognitionEnabled && locationRecognitionEnabled) && (
+            <>
+              <Eye className="w-5 h-5" />
+              Character & Location Recognition Mode
+            </>
+          )}
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Click character names to view details
+          {characterRecognitionEnabled && locationRecognitionEnabled 
+            ? 'Click character or location names to view details'
+            : characterRecognitionEnabled 
+            ? 'Click character names to view details'
+            : 'Click location names to view details'}
         </p>
       </div>
       <div 
