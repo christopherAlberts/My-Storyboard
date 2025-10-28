@@ -1038,6 +1038,15 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ content, onChange, showTabl
         onChange(currentContent);
       }
     }
+    
+    // Turn OFF character and location recognition when switching views
+    if (characterRecognitionEnabled) {
+      toggleCharacterRecognition();
+    }
+    if (locationRecognitionEnabled) {
+      toggleLocationRecognition();
+    }
+    
     // Switch view immediately - the new view will use pendingContentRef if content prop hasn't updated yet
     setViewMode(prev => prev === 'plain' ? 'paginated' : 'plain');
     // Clear pending content after a delay
