@@ -50,7 +50,7 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
 
   /**
    * Apply character and location highlighting for PAGE VIEW ONLY
-   * This function processes the HTML content and wraps character/location names with highlight spans
+   * Uses DOM manipulation to properly handle nested scenarios
    */
   const applyPageViewHighlighting = React.useCallback((html: string): string => {
     // Always remove existing highlights first to start fresh
@@ -61,53 +61,144 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
       return processedHTML;
     }
     
+    // Create temporary DOM to work with
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = processedHTML;
+    
     // Apply CHARACTER highlighting if enabled
     if (characterRecognitionEnabled && characters.length > 0) {
-      characters.forEach(character => {
-        if (!character.name || !character.color) return;
-        
-        // Escape special regex characters
-        const escapedName = character.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        // Match whole words only, but not inside existing span tags
-        const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
-        
-        processedHTML = processedHTML.replace(regex, (match, offset, string) => {
-          // Check if this match is inside an HTML tag
-          const beforeMatch = string.substring(Math.max(0, offset - 50), offset);
-          const afterMatch = string.substring(offset, offset + match.length);
-          
-          // If we're inside a tag, don't replace
-          if (/<[^>]*$/i.test(beforeMatch)) {
-            return match;
+      const textNodes: Text[] = [];
+      const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT);
+      let node;
+      
+      while ((node = walker.nextNode())) {
+        if (node instanceof Text && node.textContent?.trim()) {
+          // Only process text nodes that aren't inside highlight spans
+          if (!node.parentElement?.closest('[data-character-id], [data-location-id]')) {
+            textNodes.push(node);
           }
+        }
+      }
+      
+      textNodes.forEach(textNode => {
+        const text = textNode.textContent || '';
+        if (!text.trim()) return;
+        
+        characters.forEach(character => {
+          if (!character.name || !character.color) return;
           
-          return `<span class="character-name-hl-pageview" style="color: ${character.color}; cursor: pointer; text-decoration: underline;" data-character-id="${character.id}" data-character-name="${character.name}">${match}</span>`;
+          const escapedName = character.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+          
+          if (regex.test(text)) {
+            // Create fragment with highlighted content
+            const fragment = document.createDocumentFragment();
+            let lastIndex = 0;
+            let match;
+            regex.lastIndex = 0;
+            
+            while ((match = regex.exec(text)) !== null) {
+              // Add text before match
+              if (match.index > lastIndex) {
+                fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
+              }
+              
+              // Add highlighted span
+              const span = document.createElement('span');
+              span.className = 'character-name-hl-pageview';
+              span.style.color = character.color;
+              span.style.cursor = 'pointer';
+              span.style.textDecoration = 'underline';
+              span.setAttribute('data-character-id', character.id || '');
+              span.setAttribute('data-character-name', character.name);
+              span.textContent = match[0];
+              fragment.appendChild(span);
+              
+              lastIndex = match.index + match[0].length;
+            }
+            
+            // Add remaining text
+            if (lastIndex < text.length) {
+              fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+            }
+            
+            // Replace text node with fragment
+            textNode.parentNode?.replaceChild(fragment, textNode);
+          }
         });
       });
+      
+      processedHTML = tempDiv.innerHTML;
     }
     
-    // Apply LOCATION highlighting if enabled - only on text not already highlighted
+    // Recreate temp div with updated HTML for location highlighting
+    const tempDiv2 = document.createElement('div');
+    tempDiv2.innerHTML = processedHTML;
+    
+    // Apply LOCATION highlighting if enabled
     if (locationRecognitionEnabled && locations.length > 0) {
-      locations.forEach(location => {
-        if (!location.name || !location.color) return;
-        
-        // Escape special regex characters
-        const escapedName = location.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        // Match whole words only, but not inside existing span tags
-        const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
-        
-        processedHTML = processedHTML.replace(regex, (match, offset, string) => {
-          // Check if this match is inside an HTML tag or already inside a highlight
-          const beforeMatch = string.substring(Math.max(0, offset - 50), offset);
-          
-          // If we're inside a tag or already highlighted, don't replace
-          if (/<[^>]*$/i.test(beforeMatch) || beforeMatch.includes('character-name-hl-pageview') || beforeMatch.includes('location-highlight-pageview')) {
-            return match;
+      const textNodes: Text[] = [];
+      const walker = document.createTreeWalker(tempDiv2, NodeFilter.SHOW_TEXT);
+      let node;
+      
+      while ((node = walker.nextNode())) {
+        if (node instanceof Text && node.textContent?.trim()) {
+          // Only process text nodes that aren't inside highlight spans
+          if (!node.parentElement?.closest('[data-character-id], [data-location-id]')) {
+            textNodes.push(node);
           }
+        }
+      }
+      
+      textNodes.forEach(textNode => {
+        const text = textNode.textContent || '';
+        if (!text.trim()) return;
+        
+        locations.forEach(location => {
+          if (!location.name || !location.color) return;
           
-          return `<span class="location-highlight-pageview" style="color: ${location.color}; cursor: pointer; text-decoration: underline;" data-location-id="${location.id}" data-location-name="${location.name}">${match}</span>`;
+          const escapedName = location.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+          
+          if (regex.test(text)) {
+            // Create fragment with highlighted content
+            const fragment = document.createDocumentFragment();
+            let lastIndex = 0;
+            let match;
+            regex.lastIndex = 0;
+            
+            while ((match = regex.exec(text)) !== null) {
+              // Add text before match
+              if (match.index > lastIndex) {
+                fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
+              }
+              
+              // Add highlighted span
+              const span = document.createElement('span');
+              span.className = 'location-highlight-pageview';
+              span.style.color = location.color;
+              span.style.cursor = 'pointer';
+              span.style.textDecoration = 'underline';
+              span.setAttribute('data-location-id', location.id || '');
+              span.setAttribute('data-location-name', location.name);
+              span.textContent = match[0];
+              fragment.appendChild(span);
+              
+              lastIndex = match.index + match[0].length;
+            }
+            
+            // Add remaining text
+            if (lastIndex < text.length) {
+              fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+            }
+            
+            // Replace text node with fragment
+            textNode.parentNode?.replaceChild(fragment, textNode);
+          }
         });
       });
+      
+      processedHTML = tempDiv2.innerHTML;
     }
     
     return processedHTML;
