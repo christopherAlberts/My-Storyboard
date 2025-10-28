@@ -38,11 +38,23 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
   // ==========================================
   
   /**
+   * Remove all existing highlights from HTML to start fresh
+   */
+  const removeExistingHighlights = React.useCallback((html: string): string => {
+    // Remove character highlights - capture content between tags
+    let cleaned = html.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
+    // Remove location highlights
+    cleaned = cleaned.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
+    return cleaned;
+  }, []);
+
+  /**
    * Apply character and location highlighting for PAGE VIEW ONLY
    * This function processes the HTML content and wraps character/location names with highlight spans
    */
   const applyPageViewHighlighting = React.useCallback((html: string): string => {
-    let processedHTML = html;
+    // Always remove existing highlights first to start fresh
+    let processedHTML = removeExistingHighlights(html);
     
     // Skip if no recognition is enabled
     if (!characterRecognitionEnabled && !locationRecognitionEnabled) {
@@ -54,32 +66,52 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
       characters.forEach(character => {
         if (!character.name || !character.color) return;
         
+        // Escape special regex characters
         const escapedName = character.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        // Only match whole words
+        // Match whole words only, but not inside existing span tags
         const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
         
-        processedHTML = processedHTML.replace(regex, (match) => {
+        processedHTML = processedHTML.replace(regex, (match, offset, string) => {
+          // Check if this match is inside an HTML tag
+          const beforeMatch = string.substring(Math.max(0, offset - 50), offset);
+          const afterMatch = string.substring(offset, offset + match.length);
+          
+          // If we're inside a tag, don't replace
+          if (/<[^>]*$/i.test(beforeMatch)) {
+            return match;
+          }
+          
           return `<span class="character-name-hl-pageview" style="color: ${character.color}; cursor: pointer; text-decoration: underline;" data-character-id="${character.id}" data-character-name="${character.name}">${match}</span>`;
         });
       });
     }
     
-    // Apply LOCATION highlighting if enabled
+    // Apply LOCATION highlighting if enabled - only on text not already highlighted
     if (locationRecognitionEnabled && locations.length > 0) {
       locations.forEach(location => {
         if (!location.name || !location.color) return;
         
+        // Escape special regex characters
         const escapedName = location.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Match whole words only, but not inside existing span tags
         const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
         
-        processedHTML = processedHTML.replace(regex, (match) => {
+        processedHTML = processedHTML.replace(regex, (match, offset, string) => {
+          // Check if this match is inside an HTML tag or already inside a highlight
+          const beforeMatch = string.substring(Math.max(0, offset - 50), offset);
+          
+          // If we're inside a tag or already highlighted, don't replace
+          if (/<[^>]*$/i.test(beforeMatch) || beforeMatch.includes('character-name-hl-pageview') || beforeMatch.includes('location-highlight-pageview')) {
+            return match;
+          }
+          
           return `<span class="location-highlight-pageview" style="color: ${location.color}; cursor: pointer; text-decoration: underline;" data-location-id="${location.id}" data-location-name="${location.name}">${match}</span>`;
         });
       });
     }
     
     return processedHTML;
-  }, [characterRecognitionEnabled, locationRecognitionEnabled, characters, locations]);
+  }, [characterRecognitionEnabled, locationRecognitionEnabled, characters, locations, removeExistingHighlights]);
 
   // ==========================================
   // PAGE VIEW CONTENT INITIALIZATION
