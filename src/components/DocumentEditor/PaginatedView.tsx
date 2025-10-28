@@ -116,7 +116,7 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
     const timeoutId = setTimeout(initializePageViewContent, 50);
     
     return () => clearTimeout(timeoutId);
-  }, [content, applyPageViewHighlighting]);
+  }, [content, characterRecognitionEnabled, locationRecognitionEnabled, applyPageViewHighlighting]);
 
   // Load characters and locations
   useEffect(() => {
