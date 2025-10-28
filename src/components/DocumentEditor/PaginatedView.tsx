@@ -38,23 +38,41 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
   // ==========================================
   
   /**
-   * Remove all existing highlights from HTML to start fresh
+   * Remove specific type of highlights from HTML
    */
-  const removeExistingHighlights = React.useCallback((html: string): string => {
-    // Remove character highlights - capture content between tags
+  const removeSpecificHighlights = React.useCallback((html: string, type: 'character' | 'location'): string => {
+    if (type === 'character') {
+      return html.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
+    } else {
+      return html.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
+    }
+  }, []);
+
+  /**
+   * Remove ALL existing highlights from HTML
+   */
+  const removeAllHighlights = React.useCallback((html: string): string => {
     let cleaned = html.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
-    // Remove location highlights
     cleaned = cleaned.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
     return cleaned;
   }, []);
 
   /**
    * Apply character and location highlighting for PAGE VIEW ONLY
-   * Applies BOTH types in a single pass to avoid conflicts
+   * Intelligently applies only what's needed - removes only the type that's toggled
    */
   const applyPageViewHighlighting = React.useCallback((html: string): string => {
-    // Always remove existing highlights first to start fresh
-    let processedHTML = removeExistingHighlights(html);
+    let processedHTML = html;
+    
+    // Remove ONLY character highlights if character recognition is toggled off
+    if (!characterRecognitionEnabled) {
+      processedHTML = removeSpecificHighlights(processedHTML, 'character');
+    }
+    
+    // Remove ONLY location highlights if location recognition is toggled off
+    if (!locationRecognitionEnabled) {
+      processedHTML = removeSpecificHighlights(processedHTML, 'location');
+    }
     
     // Skip if no recognition is enabled
     if (!characterRecognitionEnabled && !locationRecognitionEnabled) {
@@ -73,7 +91,10 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
     while ((node = walker.nextNode())) {
       if (node instanceof Text && node.textContent?.trim()) {
         // Only process text nodes that aren't inside highlight spans
-        if (!node.parentElement?.closest('[data-character-id], [data-location-id]')) {
+        // Skip nodes inside either type of highlight to avoid nesting
+        const isInAnyHighlight = node.parentElement?.closest('[data-character-id], [data-location-id]');
+        
+        if (!isInAnyHighlight) {
           textNodes.push(node);
         }
       }
@@ -183,7 +204,7 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
     });
     
     return tempDiv.innerHTML;
-  }, [characterRecognitionEnabled, locationRecognitionEnabled, characters, locations, removeExistingHighlights]);
+  }, [characterRecognitionEnabled, locationRecognitionEnabled, characters, locations, removeSpecificHighlights]);
 
   // ==========================================
   // PAGE VIEW CONTENT INITIALIZATION
