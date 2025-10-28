@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import TableOfContents from './TableOfContents';
+import { useAppStore } from '../../store/useAppStore';
+import { storageService, Character, Location } from '../../services/storageService';
+import CharacterTooltip from './CharacterTooltip';
+import LocationTooltip from './LocationTooltip';
 
 interface PaginatedViewProps {
   content: string;
@@ -22,6 +26,42 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [renderedPages, setRenderedPages] = useState<number[]>([]);
   
+  // Import store values
+  const { characterRecognitionEnabled, locationRecognitionEnabled, tooltipFields } = useAppStore();
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [tooltipState, setTooltipState] = useState<{ character: Character; position: { x: number; y: number } } | null>(null);
+  const [locationTooltipState, setLocationTooltipState] = useState<{ location: Location; position: { x: number; y: number } } | null>(null);
+  
+  // Apply highlighting to content HTML
+  const applyHighlightingToHTML = (html: string): string => {
+    let processedHTML = html;
+    
+    if (characterRecognitionEnabled && characters.length > 0) {
+      characters.forEach(character => {
+        if (!character.name || !character.color) return;
+        const escapedName = character.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+        processedHTML = processedHTML.replace(regex, (match) => {
+          return `<span class="character-name-hl" style="color: ${character.color}; cursor: pointer; text-decoration: underline;" data-character-id="${character.id}" data-character-name="${character.name}">${match}</span>`;
+        });
+      });
+    }
+    
+    if (locationRecognitionEnabled && locations.length > 0) {
+      locations.forEach(location => {
+        if (!location.name || !location.color) return;
+        const escapedName = location.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+        processedHTML = processedHTML.replace(regex, (match) => {
+          return `<span class="location-highlight" style="color: ${location.color}; cursor: pointer; text-decoration: underline;" data-location-id="${location.id}" data-location-name="${location.name}">${match}</span>`;
+        });
+      });
+    }
+    
+    return processedHTML;
+  };
+
   // Initialize editor content from prop - always sync with content prop
   useEffect(() => {
     // Wait for editor to be mounted in DOM
@@ -33,11 +73,13 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
         if (isInDocument) {
           // Always set content from prop - this ensures both views display the same content
           const cleanContent = content || '<p><br></p>';
+          // Apply highlighting to the content
+          const highlightedContent = applyHighlightingToHTML(cleanContent);
           const currentContent = editorRef.current.innerHTML;
           
           // Update if content is different
-          if (currentContent !== cleanContent) {
-            editorRef.current.innerHTML = cleanContent;
+          if (currentContent !== highlightedContent) {
+            editorRef.current.innerHTML = highlightedContent;
           }
         }
       }
@@ -50,7 +92,73 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
     const timeoutId = setTimeout(initializeContent, 50);
     
     return () => clearTimeout(timeoutId);
-  }, [content]);
+  }, [content, characterRecognitionEnabled, locationRecognitionEnabled, characters, locations]);
+
+  // Load characters and locations
+  useEffect(() => {
+    const loadCharacters = async () => {
+      const chars = await storageService.getCharacters();
+      setCharacters(chars);
+    };
+    loadCharacters();
+  }, []);
+
+  useEffect(() => {
+    const loadLocations = async () => {
+      const locs = await storageService.getLocations();
+      setLocations(locs);
+    };
+    loadLocations();
+  }, []);
+
+  // Set up event listeners for tooltips on highlighted elements
+  useEffect(() => {
+    if (!editorRef.current) return;
+    
+    const editor = editorRef.current;
+    
+    const handleMouseEnter = (e: Event) => {
+      const target = e.target as HTMLElement;
+      const characterSpan = target.closest('[data-character-id]');
+      const locationSpan = target.closest('[data-location-id]');
+      
+      if (characterSpan) {
+        const characterId = characterSpan.getAttribute('data-character-id');
+        const character = characters.find(c => c.id === characterId);
+        if (character) {
+          const rect = characterSpan.getBoundingClientRect();
+          setTooltipState({
+            character,
+            position: { x: rect.left + rect.width / 2, y: rect.top }
+          });
+        }
+      } else if (locationSpan) {
+        const locationId = locationSpan.getAttribute('data-location-id');
+        const location = locations.find(l => l.id === locationId);
+        if (location) {
+          const rect = locationSpan.getBoundingClientRect();
+          setLocationTooltipState({
+            location,
+            position: { x: rect.left + rect.width / 2, y: rect.top }
+          });
+        }
+      }
+    };
+    
+    const handleMouseLeave = (e: Event) => {
+      setTooltipState(null);
+      setLocationTooltipState(null);
+    };
+    
+    // Use event delegation
+    editor.addEventListener('mouseenter', handleMouseEnter, true);
+    editor.addEventListener('mouseleave', handleMouseLeave, true);
+    
+    return () => {
+      editor.removeEventListener('mouseenter', handleMouseEnter, true);
+      editor.removeEventListener('mouseleave', handleMouseLeave, true);
+    };
+  }, [characters, locations]);
 
   // Calculate approximate page count based on content height
   const estimatePageCount = () => {
@@ -256,6 +364,26 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
           </div>
         )}
       </div>
+      
+      {/* Character Tooltip */}
+      {tooltipState && (
+        <CharacterTooltip
+          character={tooltipState.character}
+          position={tooltipState.position}
+          tooltipFields={tooltipFields}
+          onClose={() => setTooltipState(null)}
+        />
+      )}
+      
+      {/* Location Tooltip */}
+      {locationTooltipState && (
+        <LocationTooltip
+          location={locationTooltipState.location}
+          position={locationTooltipState.position}
+          tooltipFields={tooltipFields}
+          onClose={() => setLocationTooltipState(null)}
+        />
+      )}
     </div>
   );
 };
