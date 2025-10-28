@@ -50,7 +50,7 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
 
   /**
    * Apply character and location highlighting for PAGE VIEW ONLY
-   * Uses DOM manipulation to properly handle nested scenarios
+   * Applies BOTH types in a single pass to avoid conflicts
    */
   const applyPageViewHighlighting = React.useCallback((html: string): string => {
     // Always remove existing highlights first to start fresh
@@ -65,143 +65,124 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = processedHTML;
     
-    // Apply CHARACTER highlighting if enabled
-    if (characterRecognitionEnabled && characters.length > 0) {
-      const textNodes: Text[] = [];
-      const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT);
-      let node;
-      
-      while ((node = walker.nextNode())) {
-        if (node instanceof Text && node.textContent?.trim()) {
-          // Only process text nodes that aren't inside highlight spans
-          if (!node.parentElement?.closest('[data-character-id], [data-location-id]')) {
-            textNodes.push(node);
-          }
+    // Find all text nodes that aren't already inside highlights
+    const textNodes: Text[] = [];
+    const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT);
+    let node;
+    
+    while ((node = walker.nextNode())) {
+      if (node instanceof Text && node.textContent?.trim()) {
+        // Only process text nodes that aren't inside highlight spans
+        if (!node.parentElement?.closest('[data-character-id], [data-location-id]')) {
+          textNodes.push(node);
         }
       }
+    }
+    
+    // Process all text nodes in one pass
+    textNodes.forEach(textNode => {
+      const text = textNode.textContent || '';
+      if (!text.trim()) return;
       
-      textNodes.forEach(textNode => {
-        const text = textNode.textContent || '';
-        if (!text.trim()) return;
-        
+      const allMatches: Array<{
+        index: number;
+        length: number;
+        text: string;
+        type: 'character' | 'location';
+        character?: Character;
+        location?: Location;
+      }> = [];
+      
+      // Collect all CHARACTER matches if enabled
+      if (characterRecognitionEnabled && characters.length > 0) {
         characters.forEach(character => {
           if (!character.name || !character.color) return;
           
           const escapedName = character.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+          let match;
+          regex.lastIndex = 0;
           
-          if (regex.test(text)) {
-            // Create fragment with highlighted content
-            const fragment = document.createDocumentFragment();
-            let lastIndex = 0;
-            let match;
-            regex.lastIndex = 0;
-            
-            while ((match = regex.exec(text)) !== null) {
-              // Add text before match
-              if (match.index > lastIndex) {
-                fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
-              }
-              
-              // Add highlighted span
-              const span = document.createElement('span');
-              span.className = 'character-name-hl-pageview';
-              span.style.color = character.color;
-              span.style.cursor = 'pointer';
-              span.style.textDecoration = 'underline';
-              span.setAttribute('data-character-id', character.id || '');
-              span.setAttribute('data-character-name', character.name);
-              span.textContent = match[0];
-              fragment.appendChild(span);
-              
-              lastIndex = match.index + match[0].length;
-            }
-            
-            // Add remaining text
-            if (lastIndex < text.length) {
-              fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
-            }
-            
-            // Replace text node with fragment
-            textNode.parentNode?.replaceChild(fragment, textNode);
+          while ((match = regex.exec(text)) !== null) {
+            allMatches.push({
+              index: match.index,
+              length: match[0].length,
+              text: match[0],
+              type: 'character',
+              character
+            });
           }
         });
-      });
-      
-      processedHTML = tempDiv.innerHTML;
-    }
-    
-    // Recreate temp div with updated HTML for location highlighting
-    const tempDiv2 = document.createElement('div');
-    tempDiv2.innerHTML = processedHTML;
-    
-    // Apply LOCATION highlighting if enabled
-    if (locationRecognitionEnabled && locations.length > 0) {
-      const textNodes: Text[] = [];
-      const walker = document.createTreeWalker(tempDiv2, NodeFilter.SHOW_TEXT);
-      let node;
-      
-      while ((node = walker.nextNode())) {
-        if (node instanceof Text && node.textContent?.trim()) {
-          // Only process text nodes that aren't inside highlight spans
-          if (!node.parentElement?.closest('[data-character-id], [data-location-id]')) {
-            textNodes.push(node);
-          }
-        }
       }
       
-      textNodes.forEach(textNode => {
-        const text = textNode.textContent || '';
-        if (!text.trim()) return;
-        
+      // Collect all LOCATION matches if enabled
+      if (locationRecognitionEnabled && locations.length > 0) {
         locations.forEach(location => {
           if (!location.name || !location.color) return;
           
           const escapedName = location.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+          let match;
+          regex.lastIndex = 0;
           
-          if (regex.test(text)) {
-            // Create fragment with highlighted content
-            const fragment = document.createDocumentFragment();
-            let lastIndex = 0;
-            let match;
-            regex.lastIndex = 0;
-            
-            while ((match = regex.exec(text)) !== null) {
-              // Add text before match
-              if (match.index > lastIndex) {
-                fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
-              }
-              
-              // Add highlighted span
-              const span = document.createElement('span');
-              span.className = 'location-highlight-pageview';
-              span.style.color = location.color;
-              span.style.cursor = 'pointer';
-              span.style.textDecoration = 'underline';
-              span.setAttribute('data-location-id', location.id || '');
-              span.setAttribute('data-location-name', location.name);
-              span.textContent = match[0];
-              fragment.appendChild(span);
-              
-              lastIndex = match.index + match[0].length;
-            }
-            
-            // Add remaining text
-            if (lastIndex < text.length) {
-              fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
-            }
-            
-            // Replace text node with fragment
-            textNode.parentNode?.replaceChild(fragment, textNode);
+          while ((match = regex.exec(text)) !== null) {
+            allMatches.push({
+              index: match.index,
+              length: match[0].length,
+              text: match[0],
+              type: 'location',
+              location
+            });
           }
         });
-      });
+      }
       
-      processedHTML = tempDiv2.innerHTML;
-    }
+      // If we have matches, create fragments for highlights
+      if (allMatches.length > 0) {
+        // Sort matches by index
+        allMatches.sort((a, b) => a.index - b.index);
+        
+        const fragment = document.createDocumentFragment();
+        let lastIndex = 0;
+        
+        allMatches.forEach(match => {
+          // Add text before this match
+          if (match.index > lastIndex) {
+            fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
+          }
+          
+          // Create highlight span
+          const span = document.createElement('span');
+          if (match.type === 'character' && match.character) {
+            span.className = 'character-name-hl-pageview';
+            span.style.color = match.character.color;
+            span.setAttribute('data-character-id', match.character.id || '');
+            span.setAttribute('data-character-name', match.character.name);
+          } else if (match.type === 'location' && match.location) {
+            span.className = 'location-highlight-pageview';
+            span.style.color = match.location.color;
+            span.setAttribute('data-location-id', match.location.id || '');
+            span.setAttribute('data-location-name', match.location.name);
+          }
+          span.style.cursor = 'pointer';
+          span.style.textDecoration = 'underline';
+          span.textContent = match.text;
+          fragment.appendChild(span);
+          
+          lastIndex = match.index + match.length;
+        });
+        
+        // Add remaining text
+        if (lastIndex < text.length) {
+          fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+        }
+        
+        // Replace text node with fragment
+        textNode.parentNode?.replaceChild(fragment, textNode);
+      }
+    });
     
-    return processedHTML;
+    return tempDiv.innerHTML;
   }, [characterRecognitionEnabled, locationRecognitionEnabled, characters, locations, removeExistingHighlights]);
 
   // ==========================================
