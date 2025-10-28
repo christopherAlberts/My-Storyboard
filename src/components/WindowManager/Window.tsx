@@ -285,7 +285,7 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
     >
       {/* Window Header */}
       <div 
-        className={`window-header flex items-center justify-between p-3 border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 cursor-move ${
+        className={`window-header flex items-center p-3 border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 cursor-move ${
           window.isFullscreen ? '' : 'rounded-t-lg'
         }`}
         onDoubleClick={handleDoubleClick}
@@ -296,7 +296,11 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
           msUserSelect: 'none' 
         } as React.CSSProperties}
       >
-        <div className="flex items-center space-x-2">
+        {/* Left spacer for balance */}
+        <div className="flex-1"></div>
+        
+        {/* Centered title */}
+        <div className="flex items-center justify-center space-x-2 flex-1">
           <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {window.title}
           </div>
@@ -306,7 +310,9 @@ const Window: React.FC<WindowProps> = ({ window, isActive, onClick }) => {
             </div>
           )}
         </div>
-        <div className="flex items-center space-x-1">
+        
+        {/* Right buttons */}
+        <div className="flex items-center space-x-1 flex-1 justify-end">
           <button
             onClick={(e) => {
               e.stopPropagation();
