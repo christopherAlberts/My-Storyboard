@@ -33,66 +33,90 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
   const [tooltipState, setTooltipState] = useState<{ character: Character; position: { x: number; y: number } } | null>(null);
   const [locationTooltipState, setLocationTooltipState] = useState<{ location: Location; position: { x: number; y: number } } | null>(null);
   
-  // Apply highlighting to content HTML
-  const applyHighlightingToHTML = (html: string): string => {
+  // ==========================================
+  // PAGE VIEW SPECIFIC HIGHLIGHTING LOGIC
+  // ==========================================
+  
+  /**
+   * Apply character and location highlighting for PAGE VIEW ONLY
+   * This function processes the HTML content and wraps character/location names with highlight spans
+   */
+  const applyPageViewHighlighting = React.useCallback((html: string): string => {
     let processedHTML = html;
     
+    // Skip if no recognition is enabled
+    if (!characterRecognitionEnabled && !locationRecognitionEnabled) {
+      return processedHTML;
+    }
+    
+    // Apply CHARACTER highlighting if enabled
     if (characterRecognitionEnabled && characters.length > 0) {
       characters.forEach(character => {
         if (!character.name || !character.color) return;
+        
         const escapedName = character.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Only match whole words
         const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+        
         processedHTML = processedHTML.replace(regex, (match) => {
-          return `<span class="character-name-hl" style="color: ${character.color}; cursor: pointer; text-decoration: underline;" data-character-id="${character.id}" data-character-name="${character.name}">${match}</span>`;
+          return `<span class="character-name-hl-pageview" style="color: ${character.color}; cursor: pointer; text-decoration: underline;" data-character-id="${character.id}" data-character-name="${character.name}">${match}</span>`;
         });
       });
     }
     
+    // Apply LOCATION highlighting if enabled
     if (locationRecognitionEnabled && locations.length > 0) {
       locations.forEach(location => {
         if (!location.name || !location.color) return;
+        
         const escapedName = location.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+        
         processedHTML = processedHTML.replace(regex, (match) => {
-          return `<span class="location-highlight" style="color: ${location.color}; cursor: pointer; text-decoration: underline;" data-location-id="${location.id}" data-location-name="${location.name}">${match}</span>`;
+          return `<span class="location-highlight-pageview" style="color: ${location.color}; cursor: pointer; text-decoration: underline;" data-location-id="${location.id}" data-location-name="${location.name}">${match}</span>`;
         });
       });
     }
     
     return processedHTML;
-  };
+  }, [characterRecognitionEnabled, locationRecognitionEnabled, characters, locations]);
 
-  // Initialize editor content from prop - always sync with content prop
+  // ==========================================
+  // PAGE VIEW CONTENT INITIALIZATION
+  // ==========================================
+  
+  /**
+   * Initialize and update page view content with highlighting
+   * This is specific to PAGE VIEW only and handles content rendering
+   */
   useEffect(() => {
-    // Wait for editor to be mounted in DOM
-    const initializeContent = () => {
-      if (editorRef.current && content !== undefined) {
-        // Check if element is actually in the document
-        const isInDocument = document.body.contains(editorRef.current);
-        
-        if (isInDocument) {
-          // Always set content from prop - this ensures both views display the same content
-          const cleanContent = content || '<p><br></p>';
-          // Apply highlighting to the content
-          const highlightedContent = applyHighlightingToHTML(cleanContent);
-          const currentContent = editorRef.current.innerHTML;
-          
-          // Update if content is different
-          if (currentContent !== highlightedContent) {
-            editorRef.current.innerHTML = highlightedContent;
-          }
-        }
+    const initializePageViewContent = () => {
+      if (!editorRef.current || content === undefined) return;
+      
+      // Check if element is actually in the document
+      const isInDocument = document.body.contains(editorRef.current);
+      if (!isInDocument) return;
+      
+      const cleanContent = content || '<p><br></p>';
+      
+      // Apply PAGE VIEW specific highlighting
+      const highlightedContent = applyPageViewHighlighting(cleanContent);
+      const currentContent = editorRef.current.innerHTML;
+      
+      // Only update if content actually changed
+      if (currentContent !== highlightedContent) {
+        editorRef.current.innerHTML = highlightedContent;
       }
     };
     
     // Initialize immediately
-    initializeContent();
+    initializePageViewContent();
     
     // Also initialize after a short delay to ensure DOM is ready
-    const timeoutId = setTimeout(initializeContent, 50);
+    const timeoutId = setTimeout(initializePageViewContent, 50);
     
     return () => clearTimeout(timeoutId);
-  }, [content, characterRecognitionEnabled, locationRecognitionEnabled, characters, locations]);
+  }, [content, applyPageViewHighlighting]);
 
   // Load characters and locations
   useEffect(() => {
@@ -111,54 +135,81 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
     loadLocations();
   }, []);
 
-  // Set up event listeners for tooltips on highlighted elements
+  // ==========================================
+  // PAGE VIEW TOOLTIP EVENT HANDLERS
+  // ==========================================
+  
+  /**
+   * Set up event listeners for PAGE VIEW tooltips
+   * Uses event delegation on the editor container to handle all highlighted elements
+   */
   useEffect(() => {
     if (!editorRef.current) return;
     
     const editor = editorRef.current;
     
-    const handleMouseEnter = (e: Event) => {
+    // Handler for mouseover on highlighted elements (characters and locations)
+    const handleMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      const characterSpan = target.closest('[data-character-id]');
-      const locationSpan = target.closest('[data-location-id]');
+      if (!target) return;
       
+      // Check if hovering over character highlight
+      const characterSpan = target.closest('[data-character-id]');
       if (characterSpan) {
         const characterId = characterSpan.getAttribute('data-character-id');
-        const character = characters.find(c => c.id === characterId);
-        if (character) {
-          const rect = characterSpan.getBoundingClientRect();
-          setTooltipState({
-            character,
-            position: { x: rect.left + rect.width / 2, y: rect.top }
-          });
+        if (characterId) {
+          const character = characters.find(c => c.id === characterId);
+          if (character) {
+            const rect = characterSpan.getBoundingClientRect();
+            setTooltipState({
+              character,
+              position: { x: rect.left + rect.width / 2, y: rect.top - 10 }
+            });
+          }
         }
-      } else if (locationSpan) {
+        return;
+      }
+      
+      // Check if hovering over location highlight
+      const locationSpan = target.closest('[data-location-id]');
+      if (locationSpan) {
         const locationId = locationSpan.getAttribute('data-location-id');
-        const location = locations.find(l => l.id === locationId);
-        if (location) {
-          const rect = locationSpan.getBoundingClientRect();
-          setLocationTooltipState({
-            location,
-            position: { x: rect.left + rect.width / 2, y: rect.top }
-          });
+        if (locationId) {
+          const location = locations.find(l => l.id === locationId);
+          if (location) {
+            const rect = locationSpan.getBoundingClientRect();
+            setLocationTooltipState({
+              location,
+              position: { x: rect.left + rect.width / 2, y: rect.top - 10 }
+            });
+          }
         }
       }
     };
     
-    const handleMouseLeave = (e: Event) => {
-      setTooltipState(null);
-      setLocationTooltipState(null);
+    // Handler for mouseout - hide tooltips
+    const handleMouseOut = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+      
+      // Hide tooltips when leaving highlighted elements
+      const isLeavingHighlight = target.closest('[data-character-id]') || target.closest('[data-location-id]');
+      if (!isLeavingHighlight) {
+        setTooltipState(null);
+        setLocationTooltipState(null);
+      }
     };
     
-    // Use event delegation
-    editor.addEventListener('mouseenter', handleMouseEnter, true);
-    editor.addEventListener('mouseleave', handleMouseLeave, true);
+    // Attach event listeners using event delegation
+    editor.addEventListener('mouseover', handleMouseOver);
+    editor.addEventListener('mouseout', handleMouseOut);
     
+    // Cleanup
     return () => {
-      editor.removeEventListener('mouseenter', handleMouseEnter, true);
-      editor.removeEventListener('mouseleave', handleMouseLeave, true);
+      editor.removeEventListener('mouseover', handleMouseOver);
+      editor.removeEventListener('mouseout', handleMouseOut);
     };
-  }, [characters, locations]);
+  }, [characterRecognitionEnabled, locationRecognitionEnabled, characters, locations]);
 
   // Calculate approximate page count based on content height
   const estimatePageCount = () => {
