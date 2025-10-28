@@ -42,15 +42,16 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
    * Works independently like normal view
    */
   const applyCharacterHighlightingPageView = React.useCallback((html: string): string => {
+    // If character recognition is disabled, just remove its highlights
     if (!characterRecognitionEnabled || characters.length === 0) {
-      // Remove character highlights only
-      return html.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*?)<\/span>/gi, '$1');
+      return html.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
     }
 
+    // Character recognition is enabled - apply/reapply highlights
     let processedHTML = html;
     
-    // Remove existing character highlights only
-    processedHTML = processedHTML.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*?)<\/span>/gi, '$1');
+    // Always remove existing character highlights first
+    processedHTML = processedHTML.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
     
     // Create temporary DOM
     const tempDiv = document.createElement('div');
@@ -134,15 +135,16 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
    * Works independently like normal view
    */
   const applyLocationHighlightingPageView = React.useCallback((html: string): string => {
+    // If location recognition is disabled, just remove its highlights
     if (!locationRecognitionEnabled || locations.length === 0) {
-      // Remove location highlights only
-      return html.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*?)<\/span>/gi, '$1');
+      return html.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
     }
 
+    // Location recognition is enabled - apply/reapply highlights
     let processedHTML = html;
     
-    // Remove existing location highlights only
-    processedHTML = processedHTML.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*?)<\/span>/gi, '$1');
+    // Always remove existing location highlights first
+    processedHTML = processedHTML.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
     
     // Create temporary DOM
     const tempDiv = document.createElement('div');
