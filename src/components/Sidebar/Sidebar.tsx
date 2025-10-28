@@ -87,7 +87,7 @@ const Sidebar: React.FC = () => {
       {/* Sidebar */}
       <div
         data-sidebar
-        className={`fixed top-16 left-0 h-[calc(100%-4rem)] w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out z-50 ${
+        className={`fixed top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out z-50 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
