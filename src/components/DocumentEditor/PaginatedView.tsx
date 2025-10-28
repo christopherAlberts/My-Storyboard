@@ -42,20 +42,13 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
    * Works independently like normal view
    */
   const applyCharacterHighlightingPageView = React.useCallback((html: string): string => {
-    // If character recognition is disabled, just remove its highlights
     if (!characterRecognitionEnabled || characters.length === 0) {
-      return html.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
+      return html; // Return unchanged if disabled
     }
 
-    // Character recognition is enabled - apply/reapply highlights
-    let processedHTML = html;
-    
-    // Always remove existing character highlights first
-    processedHTML = processedHTML.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
-    
     // Create temporary DOM
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = processedHTML;
+    tempDiv.innerHTML = html;
     
     // Find all text nodes (excluding those inside location highlights to avoid conflicts)
     const textNodes: Text[] = [];
@@ -135,20 +128,13 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
    * Works independently like normal view
    */
   const applyLocationHighlightingPageView = React.useCallback((html: string): string => {
-    // If location recognition is disabled, just remove its highlights
     if (!locationRecognitionEnabled || locations.length === 0) {
-      return html.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
+      return html; // Return unchanged if disabled
     }
 
-    // Location recognition is enabled - apply/reapply highlights
-    let processedHTML = html;
-    
-    // Always remove existing location highlights first
-    processedHTML = processedHTML.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
-    
     // Create temporary DOM
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = processedHTML;
+    tempDiv.innerHTML = html;
     
     // Find all text nodes (excluding those inside character highlights to avoid conflicts)
     const textNodes: Text[] = [];
@@ -224,15 +210,38 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
   }, [locationRecognitionEnabled, locations]);
 
   /**
+   * Remove all highlights
+   */
+  const removeAllHighlights = React.useCallback((html: string): string => {
+    let cleaned = html.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
+    cleaned = cleaned.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
+    return cleaned;
+  }, []);
+
+  /**
    * Apply both types of highlighting for PAGE VIEW
    */
   const applyPageViewHighlighting = React.useCallback((html: string): string => {
-    // Apply character highlighting first
-    let processed = applyCharacterHighlightingPageView(html);
-    // Then apply location highlighting
-    processed = applyLocationHighlightingPageView(processed);
+    // If both are disabled, return clean HTML (no highlights)
+    if (!characterRecognitionEnabled && !locationRecognitionEnabled) {
+      return removeAllHighlights(html);
+    }
+    
+    // Start with clean HTML (no existing highlights)
+    let processed = removeAllHighlights(html);
+    
+    // Apply character highlighting if enabled
+    if (characterRecognitionEnabled && characters.length > 0) {
+      processed = applyCharacterHighlightingPageView(processed);
+    }
+    
+    // Apply location highlighting if enabled
+    if (locationRecognitionEnabled && locations.length > 0) {
+      processed = applyLocationHighlightingPageView(processed);
+    }
+    
     return processed;
-  }, [characterRecognitionEnabled, locationRecognitionEnabled, applyCharacterHighlightingPageView, applyLocationHighlightingPageView]);
+  }, [characterRecognitionEnabled, locationRecognitionEnabled, characters, locations, applyCharacterHighlightingPageView, applyLocationHighlightingPageView, removeAllHighlights]);
 
   // ==========================================
   // PAGE VIEW CONTENT INITIALIZATION
