@@ -38,173 +38,199 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
   // ==========================================
   
   /**
-   * Remove specific type of highlights from HTML
+   * Apply CHARACTER highlighting for PAGE VIEW ONLY
+   * Works independently like normal view
    */
-  const removeSpecificHighlights = React.useCallback((html: string, type: 'character' | 'location'): string => {
-    if (type === 'character') {
-      return html.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
-    } else {
-      return html.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
+  const applyCharacterHighlightingPageView = React.useCallback((html: string): string => {
+    if (!characterRecognitionEnabled || characters.length === 0) {
+      // Remove character highlights only
+      return html.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*?)<\/span>/gi, '$1');
     }
-  }, []);
 
-  /**
-   * Remove ALL existing highlights from HTML
-   */
-  const removeAllHighlights = React.useCallback((html: string): string => {
-    let cleaned = html.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
-    cleaned = cleaned.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
-    return cleaned;
-  }, []);
-
-  /**
-   * Apply character and location highlighting for PAGE VIEW ONLY
-   * Intelligently applies only what's needed - removes only the type that's toggled
-   */
-  const applyPageViewHighlighting = React.useCallback((html: string): string => {
     let processedHTML = html;
     
-    // Remove ONLY character highlights if character recognition is toggled off
-    if (!characterRecognitionEnabled) {
-      processedHTML = removeSpecificHighlights(processedHTML, 'character');
-    }
+    // Remove existing character highlights only
+    processedHTML = processedHTML.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*?)<\/span>/gi, '$1');
     
-    // Remove ONLY location highlights if location recognition is toggled off
-    if (!locationRecognitionEnabled) {
-      processedHTML = removeSpecificHighlights(processedHTML, 'location');
-    }
-    
-    // Skip if no recognition is enabled
-    if (!characterRecognitionEnabled && !locationRecognitionEnabled) {
-      return processedHTML;
-    }
-    
-    // Create temporary DOM to work with
+    // Create temporary DOM
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = processedHTML;
     
-    // Find all text nodes that aren't already inside highlights
+    // Find all text nodes (excluding those inside location highlights to avoid conflicts)
     const textNodes: Text[] = [];
     const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT);
     let node;
     
     while ((node = walker.nextNode())) {
       if (node instanceof Text && node.textContent?.trim()) {
-        // Only process text nodes that aren't inside highlight spans
-        // Skip nodes inside either type of highlight to avoid nesting
-        const isInAnyHighlight = node.parentElement?.closest('[data-character-id], [data-location-id]');
-        
-        if (!isInAnyHighlight) {
+        // Skip nodes inside location highlights
+        if (!node.parentElement?.closest('[data-location-id]')) {
           textNodes.push(node);
         }
       }
     }
     
-    // Process all text nodes in one pass
+    // Apply character highlighting
     textNodes.forEach(textNode => {
       const text = textNode.textContent || '';
       if (!text.trim()) return;
       
-      const allMatches: Array<{
-        index: number;
-        length: number;
-        text: string;
-        type: 'character' | 'location';
-        character?: Character;
-        location?: Location;
-      }> = [];
+      const allMatches: Array<{ index: number; length: number; character: Character }> = [];
       
-      // Collect all CHARACTER matches if enabled
-      if (characterRecognitionEnabled && characters.length > 0) {
-        characters.forEach(character => {
-          if (!character.name || !character.color) return;
-          
-          const escapedName = character.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
-          let match;
-          regex.lastIndex = 0;
-          
-          while ((match = regex.exec(text)) !== null) {
-            allMatches.push({
-              index: match.index,
-              length: match[0].length,
-              text: match[0],
-              type: 'character',
-              character
-            });
-          }
-        });
-      }
+      characters.forEach(character => {
+        if (!character.name || !character.color) return;
+        
+        const escapedName = character.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+        let match;
+        regex.lastIndex = 0;
+        
+        while ((match = regex.exec(text)) !== null) {
+          allMatches.push({
+            index: match.index,
+            length: match[0].length,
+            character
+          });
+        }
+      });
       
-      // Collect all LOCATION matches if enabled
-      if (locationRecognitionEnabled && locations.length > 0) {
-        locations.forEach(location => {
-          if (!location.name || !location.color) return;
-          
-          const escapedName = location.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
-          let match;
-          regex.lastIndex = 0;
-          
-          while ((match = regex.exec(text)) !== null) {
-            allMatches.push({
-              index: match.index,
-              length: match[0].length,
-              text: match[0],
-              type: 'location',
-              location
-            });
-          }
-        });
-      }
-      
-      // If we have matches, create fragments for highlights
       if (allMatches.length > 0) {
-        // Sort matches by index
         allMatches.sort((a, b) => a.index - b.index);
         
         const fragment = document.createDocumentFragment();
         let lastIndex = 0;
         
         allMatches.forEach(match => {
-          // Add text before this match
           if (match.index > lastIndex) {
             fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
           }
           
-          // Create highlight span
           const span = document.createElement('span');
-          if (match.type === 'character' && match.character) {
-            span.className = 'character-name-hl-pageview';
-            span.style.color = match.character.color;
-            span.setAttribute('data-character-id', match.character.id || '');
-            span.setAttribute('data-character-name', match.character.name);
-          } else if (match.type === 'location' && match.location) {
-            span.className = 'location-highlight-pageview';
-            span.style.color = match.location.color;
-            span.setAttribute('data-location-id', match.location.id || '');
-            span.setAttribute('data-location-name', match.location.name);
-          }
+          span.className = 'character-name-hl-pageview';
+          span.style.color = match.character.color;
           span.style.cursor = 'pointer';
           span.style.textDecoration = 'underline';
-          span.textContent = match.text;
+          span.setAttribute('data-character-id', match.character.id || '');
+          span.setAttribute('data-character-name', match.character.name);
+          span.textContent = text.substring(match.index, match.index + match.length);
           fragment.appendChild(span);
           
           lastIndex = match.index + match.length;
         });
         
-        // Add remaining text
         if (lastIndex < text.length) {
           fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
         }
         
-        // Replace text node with fragment
         textNode.parentNode?.replaceChild(fragment, textNode);
       }
     });
     
     return tempDiv.innerHTML;
-  }, [characterRecognitionEnabled, locationRecognitionEnabled, characters, locations, removeSpecificHighlights]);
+  }, [characterRecognitionEnabled, characters]);
+
+  /**
+   * Apply LOCATION highlighting for PAGE VIEW ONLY
+   * Works independently like normal view
+   */
+  const applyLocationHighlightingPageView = React.useCallback((html: string): string => {
+    if (!locationRecognitionEnabled || locations.length === 0) {
+      // Remove location highlights only
+      return html.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*?)<\/span>/gi, '$1');
+    }
+
+    let processedHTML = html;
+    
+    // Remove existing location highlights only
+    processedHTML = processedHTML.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*?)<\/span>/gi, '$1');
+    
+    // Create temporary DOM
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = processedHTML;
+    
+    // Find all text nodes (excluding those inside character highlights to avoid conflicts)
+    const textNodes: Text[] = [];
+    const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT);
+    let node;
+    
+    while ((node = walker.nextNode())) {
+      if (node instanceof Text && node.textContent?.trim()) {
+        // Skip nodes inside character highlights
+        if (!node.parentElement?.closest('[data-character-id]')) {
+          textNodes.push(node);
+        }
+      }
+    }
+    
+    // Apply location highlighting
+    textNodes.forEach(textNode => {
+      const text = textNode.textContent || '';
+      if (!text.trim()) return;
+      
+      const allMatches: Array<{ index: number; length: number; location: Location }> = [];
+      
+      locations.forEach(location => {
+        if (!location.name || !location.color) return;
+        
+        const escapedName = location.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+        let match;
+        regex.lastIndex = 0;
+        
+        while ((match = regex.exec(text)) !== null) {
+          allMatches.push({
+            index: match.index,
+            length: match[0].length,
+            location
+          });
+        }
+      });
+      
+      if (allMatches.length > 0) {
+        allMatches.sort((a, b) => a.index - b.index);
+        
+        const fragment = document.createDocumentFragment();
+        let lastIndex = 0;
+        
+        allMatches.forEach(match => {
+          if (match.index > lastIndex) {
+            fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
+          }
+          
+          const span = document.createElement('span');
+          span.className = 'location-highlight-pageview';
+          span.style.color = match.location.color;
+          span.style.cursor = 'pointer';
+          span.style.textDecoration = 'underline';
+          span.setAttribute('data-location-id', match.location.id || '');
+          span.setAttribute('data-location-name', match.location.name);
+          span.textContent = text.substring(match.index, match.index + match.length);
+          fragment.appendChild(span);
+          
+          lastIndex = match.index + match.length;
+        });
+        
+        if (lastIndex < text.length) {
+          fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+        }
+        
+        textNode.parentNode?.replaceChild(fragment, textNode);
+      }
+    });
+    
+    return tempDiv.innerHTML;
+  }, [locationRecognitionEnabled, locations]);
+
+  /**
+   * Apply both types of highlighting for PAGE VIEW
+   */
+  const applyPageViewHighlighting = React.useCallback((html: string): string => {
+    // Apply character highlighting first
+    let processed = applyCharacterHighlightingPageView(html);
+    // Then apply location highlighting
+    processed = applyLocationHighlightingPageView(processed);
+    return processed;
+  }, [characterRecognitionEnabled, locationRecognitionEnabled, applyCharacterHighlightingPageView, applyLocationHighlightingPageView]);
 
   // ==========================================
   // PAGE VIEW CONTENT INITIALIZATION
