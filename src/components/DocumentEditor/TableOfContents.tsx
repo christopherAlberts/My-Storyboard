@@ -286,16 +286,18 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ editorRef, isOpen, on
 
   // Get nested structure for rendering
   const getNestedStructure = () => {
-    const filtered = headings.filter(h => {
+    // First, filter by search query only (don't filter by collapsed parent yet)
+    const searchFiltered = headings.filter(h => {
       const matchesSearch = !searchQuery || 
         h.text.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch && isHeadingVisible(h);
+      return matchesSearch;
     });
 
+    // Build the full nested structure
     const result: Array<Heading & { children: Heading[] }> = [];
     const stack: Array<Heading & { children: Heading[] }> = [];
 
-    filtered.forEach(heading => {
+    searchFiltered.forEach(heading => {
       const item = { ...heading, children: [] };
       
       // Pop stack until we find the parent
