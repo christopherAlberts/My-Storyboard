@@ -111,6 +111,19 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
     setEditData(prev => ({ ...prev, [field]: arrayValue }));
   };
 
+  // Parse multiline/bulleted textarea into array (for common phrases)
+  const parseLinesToArray = (value: string) => {
+    return value
+      .split(/\r?\n/)
+      .map(line => line.replace(/^\s*[-*•]\s?/, '').trim())
+      .filter(Boolean);
+  };
+
+  const joinArrayAsBullets = (arr?: string[]) => {
+    if (!Array.isArray(arr)) return '';
+    return arr.map(item => `- ${item}`).join('\n');
+  };
+
   const handleCustomFieldChange = (fieldName: string, value: any) => {
     setEditData(prev => ({
       ...prev,
@@ -353,15 +366,16 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Common Phrases (comma-separated)
+          Common Phrases
         </label>
-        <input
-          type="text"
-          value={Array.isArray(editData.commonPhrases) ? editData.commonPhrases.join(', ') : ''}
-          onChange={(e) => handleArrayChange('commonPhrases', e.target.value)}
+        <textarea
+          value={joinArrayAsBullets(editData.commonPhrases)}
+          onChange={(e) => handleChange('commonPhrases', parseLinesToArray(e.target.value))}
           className="form-input"
-          placeholder="e.g., 'By the gods!', 'That's interesting...'"
+          rows={6}
+          placeholder={"One per line. You can start lines with - or * for bullets."}
         />
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Stored as a list; supports multiline and bullet points.</p>
       </div>
 
       <div>
