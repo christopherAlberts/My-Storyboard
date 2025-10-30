@@ -210,38 +210,46 @@ const PaginatedView: React.FC<PaginatedViewProps> = ({
   }, [locationRecognitionEnabled, locations]);
 
   /**
-   * Remove all highlights
+   * Remove highlights (granular)
    */
-  const removeAllHighlights = React.useCallback((html: string): string => {
-    let cleaned = html.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
-    cleaned = cleaned.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
-    return cleaned;
+  const removeCharacterHighlights = React.useCallback((html: string): string => {
+    return html.replace(/<span[^>]*class="character-name-hl-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
+  }, []);
+
+  const removeLocationHighlights = React.useCallback((html: string): string => {
+    return html.replace(/<span[^>]*class="location-highlight-pageview"[^>]*>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*?)<\/span>/gi, '$1');
   }, []);
 
   /**
-   * Apply both types of highlighting for PAGE VIEW
+   * Apply highlighting for PAGE VIEW without disturbing the other type
    */
   const applyPageViewHighlighting = React.useCallback((html: string): string => {
-    // If both are disabled, return clean HTML (no highlights)
+    // Base off the current DOM if it has content; otherwise, use provided html
+    const current = editorRef.current?.innerHTML;
+    const baseHtml = current && current.trim().length > 0 ? current : html;
+
+    // If both are disabled, remove both and return
     if (!characterRecognitionEnabled && !locationRecognitionEnabled) {
-      return removeAllHighlights(html);
+      const noChars = removeCharacterHighlights(baseHtml);
+      return removeLocationHighlights(noChars);
     }
-    
-    // Start with clean HTML (no existing highlights)
-    let processed = removeAllHighlights(html);
-    
-    // Apply character highlighting if enabled
+
+    let processed = baseHtml;
+
+    // Character: ensure clean slate for characters, then apply if enabled
+    processed = removeCharacterHighlights(processed);
     if (characterRecognitionEnabled && characters.length > 0) {
       processed = applyCharacterHighlightingPageView(processed);
     }
-    
-    // Apply location highlighting if enabled
+
+    // Location: ensure clean slate for locations, then apply if enabled
+    processed = removeLocationHighlights(processed);
     if (locationRecognitionEnabled && locations.length > 0) {
       processed = applyLocationHighlightingPageView(processed);
     }
-    
+
     return processed;
-  }, [characterRecognitionEnabled, locationRecognitionEnabled, characters, locations, applyCharacterHighlightingPageView, applyLocationHighlightingPageView, removeAllHighlights]);
+  }, [characterRecognitionEnabled, locationRecognitionEnabled, characters, locations, applyCharacterHighlightingPageView, applyLocationHighlightingPageView, removeCharacterHighlights, removeLocationHighlights, editorRef]);
 
   // ==========================================
   // PAGE VIEW CONTENT INITIALIZATION
