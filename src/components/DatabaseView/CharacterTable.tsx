@@ -21,6 +21,7 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
   const [newCustomFieldName, setNewCustomFieldName] = useState('');
   const [newCustomFieldValue, setNewCustomFieldValue] = useState('');
   const [highlightedCharacterId, setHighlightedCharacterId] = useState<number | null>(null);
+  const [commonPhrasesText, setCommonPhrasesText] = useState('');
 
   React.useEffect(() => {
     const handleScrollToCharacter = (event: any) => {
@@ -87,6 +88,8 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
   const handleEdit = (character: Character) => {
     setEditingId(character.id!);
     setEditData(character);
+    // Initialize local textarea with bullet-joined phrases
+    setCommonPhrasesText(joinArrayAsBullets(character.commonPhrases));
   };
 
   const handleSave = () => {
@@ -105,6 +108,15 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
   const handleChange = (field: keyof Character, value: any) => {
     setEditData(prev => ({ ...prev, [field]: value }));
   };
+  // Keep local textarea in sync when underlying data changes (e.g., switching characters)
+  React.useEffect(() => {
+    if (editingId) {
+      setCommonPhrasesText(joinArrayAsBullets(editData.commonPhrases as string[]));
+    } else {
+      setCommonPhrasesText('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId]);
 
   const handleArrayChange = (field: keyof Character, value: string) => {
     const arrayValue = value.split(',').map(item => item.trim()).filter(item => item);
@@ -369,8 +381,12 @@ const CharacterTable: React.FC<CharacterTableProps> = ({
           Common Phrases
         </label>
         <textarea
-          value={joinArrayAsBullets(editData.commonPhrases)}
-          onChange={(e) => handleChange('commonPhrases', parseLinesToArray(e.target.value))}
+          value={commonPhrasesText}
+          onChange={(e) => {
+            const text = e.target.value;
+            setCommonPhrasesText(text);
+            handleChange('commonPhrases', parseLinesToArray(text));
+          }}
           className="form-input"
           rows={6}
           placeholder={"One per line. You can start lines with - or * for bullets."}
