@@ -177,6 +177,19 @@ export const useAppStore = create<AppStore>()(
 
       // Window management
       openWindow: (type, title) => {
+        // Check if a window of this type already exists
+        const existingWindow = get().windows.find(w => w.type === type);
+        
+        if (existingWindow) {
+          // If window exists and is minimized, restore it
+          if (existingWindow.isMinimized) {
+            get().restoreWindow(existingWindow.id);
+          }
+          // Bring existing window to front
+          get().bringToFront(existingWindow.id);
+          return;
+        }
+        
         // Calculate centered position
         const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
         const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;

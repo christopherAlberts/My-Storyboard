@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered, Link, Eye, FileText, Type, Home } from 'lucide-react';
+import { Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered, Link, Eye, FileText, Type, Home, Layout, FileText as DocumentIcon, Minus } from 'lucide-react';
 
 interface FormattingToolbarProps {
   editorRef: React.RefObject<HTMLDivElement>;
@@ -10,6 +10,9 @@ interface FormattingToolbarProps {
   onToggleLocationRecognition?: () => void;
   onToggleTableOfContents?: () => void;
   showTableOfContents?: boolean;
+  viewMode?: 'plain' | 'paginated';
+  onToggleViewMode?: () => void;
+  onInsertPageBreak?: () => void;
 }
 
 const FormattingToolbar: React.FC<FormattingToolbarProps> = ({ 
@@ -20,7 +23,10 @@ const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
   locationRecognitionEnabled = false,
   onToggleLocationRecognition,
   onToggleTableOfContents,
-  showTableOfContents = false
+  showTableOfContents = false,
+  viewMode = 'plain',
+  onToggleViewMode,
+  onInsertPageBreak
 }) => {
   const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
 
@@ -178,6 +184,20 @@ const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
         <Link className="w-4 h-4" />
       </button>
 
+      {/* Page Break */}
+      {onInsertPageBreak && (
+        <>
+          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+          <button
+            onClick={onInsertPageBreak}
+            className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
+            title="Insert Page Break"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+        </>
+      )}
+
       {/* Character Recognition */}
       {onToggleCharacterRecognition && (
         <>
@@ -198,20 +218,17 @@ const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
 
       {/* Location Recognition */}
       {onToggleLocationRecognition && (
-        <>
-          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
-          <button
-            onClick={onToggleLocationRecognition}
-            className={`p-2 rounded transition-colors ${
-              locationRecognitionEnabled
-                ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
-            }`}
-            title={locationRecognitionEnabled ? 'Disable location highlights' : 'Enable location highlights'}
-          >
-            <Home className="w-4 h-4" />
-          </button>
-        </>
+        <button
+          onClick={onToggleLocationRecognition}
+          className={`p-2 rounded transition-colors ${
+            locationRecognitionEnabled
+              ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+              : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
+          }`}
+          title={locationRecognitionEnabled ? 'Disable location highlights' : 'Enable location highlights'}
+        >
+          <Home className="w-4 h-4" />
+        </button>
       )}
 
       {/* Table of Contents */}
@@ -228,6 +245,24 @@ const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
             title="Table of Contents"
           >
             <FileText className="w-4 h-4" />
+          </button>
+        </>
+      )}
+
+      {/* View Mode Toggle */}
+      {onToggleViewMode && (
+        <>
+          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+          <button
+            onClick={onToggleViewMode}
+            className={`p-2 rounded transition-colors ${
+              viewMode === 'paginated'
+                ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
+            }`}
+            title={viewMode === 'paginated' ? 'Switch to Plain View' : 'Switch to Paginated View'}
+          >
+            <Layout className="w-4 h-4" />
           </button>
         </>
       )}

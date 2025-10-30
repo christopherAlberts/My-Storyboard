@@ -3,6 +3,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { storageService, Document } from '../../services/storageService';
 import { googleAuth } from '../../services/googleAuth';
 import { Download, FileText, Database, Calendar, HardDrive, Trash2, FolderOpen, Cloud, ExternalLink } from 'lucide-react';
+import JSZip from 'jszip';
 
 const ProjectFiles: React.FC = () => {
   const [forceUpdate, setForceUpdate] = useState(0);
@@ -38,9 +39,64 @@ const ProjectFiles: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadAllData = () => {
-    const json = storageService.exportData();
-    handleDownload('storyboard-project-data.json', json);
+  const handleDownloadAllData = async () => {
+    try {
+      const zip = new JSZip();
+      const data = storageService.getData();
+      
+      // Add project data JSON file
+      const json = storageService.exportData();
+      zip.file('project-data.json', json);
+      
+      // Add documents folder with all documents as HTML files
+      const documentsFolder = zip.folder('documents');
+      if (documentsFolder && data.documents.length > 0) {
+        data.documents.forEach(doc => {
+          const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${doc.title}</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
+    h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
+    .metadata { color: #666; font-size: 0.9em; margin-bottom: 30px; }
+  </style>
+</head>
+<body>
+  <h1>${doc.title}</h1>
+  <div class="metadata">
+    <p><strong>Type:</strong> ${doc.type}</p>
+    <p><strong>Created:</strong> ${new Date(doc.createdAt).toLocaleString()}</p>
+    <p><strong>Modified:</strong> ${new Date(doc.updatedAt).toLocaleString()}</p>
+  </div>
+  <div>${doc.content}</div>
+</body>
+</html>
+          `.trim();
+          
+          const safeFileName = doc.title.replace(/[^a-z0-9]/gi, '_') + '.html';
+          documentsFolder.file(safeFileName, htmlContent);
+        });
+      }
+      
+      // Generate ZIP file
+      const blob = await zip.generateAsync({ type: 'blob' });
+      
+      // Download the ZIP file
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${data.projectName.replace(/[^a-z0-9]/gi, '_')}_backup.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error creating ZIP file:', error);
+      alert('Failed to create backup. Please try again.');
+    }
   };
 
   const handleDownloadDocument = (docId: string) => {
